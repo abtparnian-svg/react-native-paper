@@ -1,7 +1,10 @@
-import * as React from 'react';
-import { View, ViewStyle, StyleSheet, StyleProp } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import type { ColorValue, StyleProp, ViewStyle } from 'react-native';
 
-import Icon, { IconSource } from '../Icon';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
+import Icon from '../Icon';
+import type { IconSource } from '../Icon';
 
 export type Props = {
   /**
@@ -11,8 +14,12 @@ export type Props = {
   /**
    * Color for the icon.
    */
-  color?: string;
+  color?: ColorValue;
   style?: StyleProp<ViewStyle>;
+  /**
+   * @optional
+   */
+  theme?: ThemeProp;
 };
 
 const ICON_SIZE = 24;
@@ -20,39 +27,39 @@ const ICON_SIZE = 24;
 /**
  * A component to show an icon in a list item.
  *
- * <div class="screenshots">
- *   <figure>
- *     <img class="medium" src="screenshots/list-icon.png" />
- *   </figure>
- * </div>
- *
  * ## Usage
  * ```js
  * import * as React from 'react';
- * import { List, MD3Colors } from 'react-native-paper';
+ * import { List, Palette } from 'react-native-paper';
  *
  * const MyComponent = () => (
  *   <>
- *     <List.Icon color={MD3Colors.tertiary70} icon="folder" />
- *     <List.Icon color={MD3Colors.tertiary70} icon="equal" />
- *     <List.Icon color={MD3Colors.tertiary70} icon="calendar" />
+ *     <List.Icon color={Palette.tertiary70} icon="folder" />
+ *     <List.Icon color={Palette.tertiary70} icon="equal" />
+ *     <List.Icon color={Palette.tertiary70} icon="calendar" />
  *   </>
  * );
  *
  * export default MyComponent;
  * ```
  */
-const ListIcon = ({ icon, color: iconColor, style }: Props) => (
-  <View style={[styles.item, style]} pointerEvents="box-none">
-    <Icon source={icon} size={ICON_SIZE} color={iconColor} />
-  </View>
-);
+const ListIcon = ({
+  icon,
+  color: iconColor,
+  style,
+  theme: themeOverrides,
+}: Props) => {
+  const theme = useInternalTheme(themeOverrides);
+
+  return (
+    <View style={[styles.item, style]} pointerEvents="box-none">
+      <Icon source={icon} size={ICON_SIZE} color={iconColor} theme={theme} />
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   item: {
-    margin: 8,
-    height: 40,
-    width: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },

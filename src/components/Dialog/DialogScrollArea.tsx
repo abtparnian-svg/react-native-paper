@@ -1,31 +1,31 @@
 import * as React from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
 
 import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
 
-export type Props = React.ComponentPropsWithRef<typeof View> & {
+export type Props = ViewProps & {
   /**
    * Content of the `DialogScrollArea`.
    */
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  /**
+   * @optional
+   */
+  theme?: ThemeProp;
 };
 
 /**
  * A component to show a scrollable content in a Dialog. The component only provides appropriate styling.
  * For the scrollable content you can use `ScrollView`, `FlatList` etc. depending on your requirement.
  *
- * <div class="screenshots">
- *   <figure>
- *     <img class="small" src="screenshots/dialog-scroll-area.gif" />
- *   </figure>
- * </div>
- *
  * ## Usage
  * ```js
  * import * as React from 'react';
  * import { ScrollView } from 'react-native';
- * import { Dialog, Portal, Text } from 'react-native-paper';
+ * import { Dialog, Text } from 'react-native-paper';
  *
  * const MyComponent = () => {
  *   const [visible, setVisible] = React.useState(false);
@@ -33,15 +33,13 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
  *   const hideDialog = () => setVisible(false);
  *
  *   return (
- *     <Portal>
- *       <Dialog visible={visible} onDismiss={hideDialog}>
- *         <Dialog.ScrollArea>
- *           <ScrollView contentContainerStyle={{paddingHorizontal: 24}}>
- *             <Text>This is a scrollable area</Text>
- *           </ScrollView>
- *         </Dialog.ScrollArea>
- *       </Dialog>
- *     </Portal>
+ *     <Dialog visible={visible} onDismiss={hideDialog}>
+ *       <Dialog.ScrollArea>
+ *         <ScrollView contentContainerStyle={{paddingHorizontal: 24}}>
+ *           <Text>This is a scrollable area</Text>
+ *         </ScrollView>
+ *       </Dialog.ScrollArea>
+ *     </Dialog>
  *   );
  * };
  *
@@ -49,23 +47,17 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
  * ```
  */
 const DialogScrollArea = (props: Props) => {
-  const theme = useInternalTheme();
+  const theme = useInternalTheme(props.theme);
+  const { colors } = theme;
   const borderStyles = {
-    borderColor: theme.isV3
-      ? theme.colors.surfaceVariant
-      : 'rgba(0, 0, 0, .12)',
-    borderTopWidth: theme.isV3 ? 1 : StyleSheet.hairlineWidth,
-    borderBottomWidth: theme.isV3 ? 1 : StyleSheet.hairlineWidth,
+    borderColor: colors.surfaceVariant,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
   };
   return (
     <View
       {...props}
-      style={[
-        styles.container,
-        borderStyles,
-        theme.isV3 && styles.v3Container,
-        props.style,
-      ]}
+      style={[styles.container, borderStyles, styles.v3Container, props.style]}
     >
       {props.children}
     </View>

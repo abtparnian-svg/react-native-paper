@@ -1,15 +1,14 @@
 import * as React from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
 
-import color from 'color';
-
-import { withInternalTheme } from '../../core/theming';
-import { MD3Colors } from '../../styles/themes/v3/tokens';
-import type { InternalTheme } from '../../types';
+import { useInternalTheme } from '../../core/theming';
+import { Palette } from '../../theme/tokens';
+import type { ThemeProp } from '../../theme/types';
 import Divider from '../Divider';
 import Text from '../Typography/Text';
 
-export type Props = React.ComponentPropsWithRef<typeof View> & {
+export type Props = ViewProps & {
   /**
    * Title to show as the header for the section.
    */
@@ -18,21 +17,23 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
    * Content of the `Drawer.Section`.
    */
   children: React.ReactNode;
+  /**
+   * Whether to show `Divider` at the end of the section. True by default.
+   */
+  showDivider?: boolean;
+  /**
+   * Specifies the largest possible scale a title font can reach.
+   */
+  titleMaxFontSizeMultiplier?: number;
   style?: StyleProp<ViewStyle>;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
 };
 
 /**
  * A component to group content inside a navigation drawer.
- *
- * <div class="screenshots">
- *   <figure>
- *     <img class="small" src="screenshots/drawer-section.png" />
- *   </figure>
- * </div>
  *
  * ## Usage
  * ```js
@@ -61,18 +62,24 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
  * export default MyComponent;
  * ```
  */
-const DrawerSection = ({ children, title, theme, style, ...rest }: Props) => {
-  const { isV3 } = theme;
-  const titleColor = isV3
-    ? theme.colors.onSurfaceVariant
-    : color(theme.colors.text).alpha(0.54).rgb().string();
-  const titleMargin = isV3 ? 28 : 16;
-  const font = isV3 ? theme.fonts.titleSmall : theme.fonts.medium;
+const DrawerSection = ({
+  children,
+  title,
+  theme: themeOverrides,
+  style,
+  showDivider = true,
+  titleMaxFontSizeMultiplier,
+  ...rest
+}: Props) => {
+  const theme = useInternalTheme(themeOverrides);
+  const titleColor = theme.colors.onSurfaceVariant;
+  const titleMargin = 28;
+  const font = theme.fonts.titleSmall;
 
   return (
     <View style={[styles.container, style]} {...rest}>
       {title && (
-        <View style={[styles.titleContainer, isV3 && styles.v3TitleContainer]}>
+        <View style={[styles.titleContainer, styles.v3TitleContainer]}>
           {title && (
             <Text
               variant="titleSmall"
@@ -84,6 +91,7 @@ const DrawerSection = ({ children, title, theme, style, ...rest }: Props) => {
                   ...font,
                 },
               ]}
+              maxFontSizeMultiplier={titleMaxFontSizeMultiplier}
             >
               {title}
             </Text>
@@ -91,10 +99,14 @@ const DrawerSection = ({ children, title, theme, style, ...rest }: Props) => {
         </View>
       )}
       {children}
-      <Divider
-        {...(isV3 && { horizontalInset: true, bold: true })}
-        style={[styles.divider, isV3 && styles.v3Divider]}
-      />
+      {showDivider && (
+        <Divider
+          horizontalInset
+          bold
+          style={[styles.divider, styles.v3Divider]}
+          theme={theme}
+        />
+      )}
     </View>
   );
 };
@@ -116,8 +128,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   v3Divider: {
-    backgroundColor: MD3Colors.neutralVariant50,
+    backgroundColor: Palette.neutralVariant50,
   },
 });
 
-export default withInternalTheme(DrawerSection);
+export default DrawerSection;

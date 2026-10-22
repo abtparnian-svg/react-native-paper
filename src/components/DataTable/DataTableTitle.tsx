@@ -1,25 +1,29 @@
 import * as React from 'react';
-import {
-  Animated,
-  I18nManager,
+import { PixelRatio, Pressable, StyleSheet } from 'react-native';
+import type {
+  GestureResponderEvent,
+  PressableProps,
   StyleProp,
-  StyleSheet,
   TextStyle,
-  TouchableWithoutFeedback,
-  View,
   ViewStyle,
 } from 'react-native';
 
-import color from 'color';
+import Animated, {
+  Easing,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
-import { withInternalTheme } from '../../core/theming';
-import type { InternalTheme } from '../../types';
+import { useLocale } from '../../core/locale';
+import { useInternalTheme } from '../../core/theming';
+import { useReduceMotion } from '../../theme/accessibility/ReduceMotionContext';
+import type { ThemeProp } from '../../theme/types';
 import MaterialCommunityIcon from '../MaterialCommunityIcon';
 import Text from '../Typography/Text';
 
-export type Props = React.ComponentPropsWithRef<
-  typeof TouchableWithoutFeedback
-> & {
+export type Props = PressableProps & {
   /**
    * Text content of the `DataTableTitle`.
    */
@@ -39,27 +43,24 @@ export type Props = React.ComponentPropsWithRef<
   /**
    * Function to execute on press.
    */
-  onPress?: () => void;
+  onPress?: (e: GestureResponderEvent) => void;
   style?: StyleProp<ViewStyle>;
   /**
    * Text content style of the `DataTableTitle`.
    */
   textStyle?: StyleProp<TextStyle>;
   /**
+   * Specifies the largest possible scale a text font can reach.
+   */
+  maxFontSizeMultiplier?: number;
+  /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
 };
 
 /**
  * A component to display title in table header.
- *
- * <div class="screenshots">
- *   <figure>
- *     <img class="medium" src="screenshots/data-table-header.png" />
- *   </figure>
- * </div>
- *
  *
  * ## Usage
  * ```js
@@ -67,17 +68,17 @@ export type Props = React.ComponentPropsWithRef<
  * import { DataTable } from 'react-native-paper';
  *
  * const MyComponent = () => (
- *       <DataTable>
- *         <DataTable.Header>
- *           <DataTable.Title
- *             sortDirection='descending'
- *           >
- *             Dessert
- *           </DataTable.Title>
- *           <DataTable.Title numeric>Calories</DataTable.Title>
- *           <DataTable.Title numeric>Fat (g)</DataTable.Title>
- *         </DataTable.Header>
- *       </DataTable>
+ *   <DataTable>
+ *     <DataTable.Header>
+ *       <DataTable.Title
+ *         sortDirection='descending'
+ *       >
+ *         Dessert
+ *       </DataTable.Title>
+ *       <DataTable.Title numeric>Calories</DataTable.Title>
+ *       <DataTable.Title numeric>Fat (g)</DataTable.Title>
+ *     </DataTable.Header>
+ *   </DataTable>
  * );
  *
  * export default MyComponent;
@@ -89,71 +90,78 @@ const DataTableTitle = ({
   children,
   onPress,
   sortDirection,
-  theme,
   textStyle,
   style,
+  theme: themeOverrides,
   numberOfLines = 1,
+  maxFontSizeMultiplier,
   ...rest
 }: Props) => {
-  const { current: spinAnim } = React.useRef<Animated.Value>(
-    new Animated.Value(sortDirection === 'ascending' ? 0 : 1)
-  );
+  const theme = useInternalTheme(themeOverrides);
+  const reduceMotion = useReduceMotion();
+
+  const { direction } = useLocale();
+
+  const spin = useSharedValue(sortDirection === 'ascending' ? 0 : 180);
 
   React.useEffect(() => {
-    Animated.timing(spinAnim, {
-      toValue: sortDirection === 'ascending' ? 0 : 1,
+    spin.value = withTiming(sortDirection === 'ascending' ? 0 : 180, {
       duration: 150,
-      useNativeDriver: true,
-    }).start();
-  }, [sortDirection, spinAnim]);
+      easing: Easing.inOut(Easing.ease),
+      reduceMotion: reduceMotion ? ReduceMotion.Always : ReduceMotion.Never,
+    });
+  }, [reduceMotion, sortDirection, spin]);
 
-  const textColor = theme.isV3 ? theme.colors.onSurface : theme?.colors?.text;
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spin.value}deg` }],
+  }));
 
-  const alphaTextColor = color(textColor).alpha(0.6).rgb().string();
+  const textColor = theme.colors.onSurface;
 
-  const spin = spinAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '180deg'],
-  });
+  const alphaTextColor = theme.colors.onSurfaceVariant;
 
   const icon = sortDirection ? (
-    <Animated.View style={[styles.icon, { transform: [{ rotate: spin }] }]}>
+    <Animated.View style={[styles.icon, animatedStyle]}>
       <MaterialCommunityIcon
         name="arrow-up"
         size={16}
         color={textColor}
-        direction={I18nManager.getConstants().isRTL ? 'rtl' : 'ltr'}
+        direction={direction}
       />
     </Animated.View>
   ) : null;
 
   return (
-    <TouchableWithoutFeedback disabled={!onPress} onPress={onPress} {...rest}>
-      <View style={[styles.container, numeric && styles.right, style]}>
-        {icon}
+    <Pressable
+      disabled={!onPress}
+      onPress={onPress}
+      {...rest}
+      style={[styles.container, numeric && styles.right, style]}
+    >
+      {icon}
 
-        <Text
-          style={[
-            styles.cell,
-            // height must scale with numberOfLines
-            { maxHeight: 24 * numberOfLines },
-            // if numberOfLines causes wrap, center is lost. Align directly, sensitive to numeric and RTL
-            numberOfLines > 1
-              ? numeric
-                ? I18nManager.getConstants().isRTL
-                  ? styles.leftText
-                  : styles.rightText
-                : styles.centerText
-              : {},
-            sortDirection ? styles.sorted : { color: alphaTextColor },
-            textStyle,
-          ]}
-          numberOfLines={numberOfLines}
-        >
-          {children}
-        </Text>
-      </View>
-    </TouchableWithoutFeedback>
+      <Text
+        style={[
+          styles.cell,
+          // height must scale with numberOfLines
+          { maxHeight: 24 * PixelRatio.getFontScale() * numberOfLines },
+          // if numberOfLines causes wrap, center is lost. Align directly, sensitive to numeric and RTL
+          numberOfLines > 1
+            ? numeric
+              ? direction === 'rtl'
+                ? styles.leftText
+                : styles.rightText
+              : styles.centerText
+            : {},
+          sortDirection ? styles.sorted : { color: alphaTextColor },
+          textStyle,
+        ]}
+        numberOfLines={numberOfLines}
+        maxFontSizeMultiplier={maxFontSizeMultiplier}
+      >
+        {children}
+      </Text>
+    </Pressable>
   );
 };
 
@@ -200,7 +208,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export default withInternalTheme(DataTableTitle);
+export default DataTableTitle;
 
 // @component-docs ignore-next-line
 export { DataTableTitle };

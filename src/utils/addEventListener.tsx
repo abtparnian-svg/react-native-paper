@@ -7,9 +7,10 @@ export function addEventListener<
   T extends {
     addEventListener: (
       ...args: any
-    ) => NativeEventSubscription | EmitterSubscription;
-    removeEventListener: (...args: any) => void;
-  }
+    ) => NativeEventSubscription | EmitterSubscription | undefined;
+  } & { removeEventListener?: (...args: any) => void } & {
+    remove?: (...args: any) => void;
+  },
 >(Module: T, ...rest: Parameters<typeof Module.addEventListener>) {
   const [eventName, handler] = rest;
 
@@ -21,7 +22,8 @@ export function addEventListener<
         return;
       }
 
-      Module.removeEventListener(eventName, handler);
+      Module.removeEventListener?.(eventName, handler);
+      Module.remove?.(eventName, handler);
       removed = true;
     },
   };
@@ -31,9 +33,9 @@ export function addEventListener<
 
 export function addListener<
   T extends {
-    addListener: (...args: any) => EmitterSubscription;
+    addListener: (...args: any) => EmitterSubscription | undefined;
     removeEventListener: (...args: any) => void;
-  }
+  },
 >(Module: T, ...rest: Parameters<typeof Module.addListener>) {
   const [eventName, handler] = rest;
 

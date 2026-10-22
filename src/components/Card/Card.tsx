@@ -1,23 +1,25 @@
 import * as React from 'react';
-import {
-  Animated,
+import { StyleSheet, Pressable, View } from 'react-native';
+import type {
+  GestureResponderEvent,
   StyleProp,
-  StyleSheet,
-  TouchableWithoutFeedback,
-  View,
+  ViewProps,
   ViewStyle,
 } from 'react-native';
 
-import { withInternalTheme } from '../../core/theming';
-import type { InternalTheme } from '../../types';
-import Surface from '../Surface';
+import useLatestCallback from 'use-latest-callback';
+
 import CardActions from './CardActions';
 import CardContent from './CardContent';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { CardContext } from './CardContext';
 import CardCover from './CardCover';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import CardTitle from './CardTitle';
 import { getCardColors } from './utils';
+import { useInternalTheme } from '../../core/theming';
+import type { Elevation, ThemeProp } from '../../theme/types';
+import hasTouchHandler from '../../utils/hasTouchHandler';
+import Surface from '../Surface';
+import type { SurfaceStyle } from '../Surface';
 
 type OutlinedCardProps = {
   mode: 'outlined';
@@ -26,7 +28,7 @@ type OutlinedCardProps = {
 
 type ElevatedCardProps = {
   mode?: 'elevated';
-  elevation?: number;
+  elevation?: Elevation;
 };
 
 type ContainedCardProps = {
@@ -34,15 +36,27 @@ type ContainedCardProps = {
   elevation?: never;
 };
 
-type HandlePressType = 'in' | 'out';
-
 type Mode = 'elevated' | 'outlined' | 'contained';
+type Direction = 'vertical' | 'horizontal';
 
-export type Props = React.ComponentProps<typeof Surface> & {
+export type Props = Omit<ViewProps, 'style'> & {
   /**
-   * Changes Card shadow and background on iOS and Android.
+   * Mode of the Card.
+   * - `elevated` - Card with elevation.
+   * - `contained` - Card without outline and elevation @supported Available in v5.x with theme version 3
+   * - `outlined` - Card with an outline.
    */
-  elevation?: 0 | 1 | 2 | 3 | 4 | 5 | Animated.Value;
+  mode?: Mode;
+  /**
+   * Direction of the Card's content.
+   * - `vertical`
+   * - `horizontal`
+   */
+  direction?: Direction;
+  /**
+   * Content of the `Card`.
+   */
+  children: React.ReactNode;
   /**
    * Function to execute on long press.
    */
@@ -50,23 +64,36 @@ export type Props = React.ComponentProps<typeof Surface> & {
   /**
    * Function to execute on press.
    */
-  onPress?: () => void;
+  onPress?: (e: GestureResponderEvent) => void;
   /**
-   * Mode of the Card.
-   * - `elevated` - Card with elevation.
-   * - `contained` - Card with without outline and elevation @supported Available in v5.x with theme version 3
-   * - `outlined` - Card with an outline.
+   * Function to execute as soon as the touchable element is pressed and invoked even before onPress.
    */
-  mode?: Mode;
+  onPressIn?: (e: GestureResponderEvent) => void;
   /**
-   * Content of the `Card`.
+   * Function to execute as soon as the touch is released even before onPress.
    */
-  children: React.ReactNode;
-  style?: StyleProp<ViewStyle>;
+  onPressOut?: (e: GestureResponderEvent) => void;
+  /**
+   * The number of milliseconds a user must touch the element before executing `onLongPress`.
+   */
+  delayLongPress?: number;
+  /**
+   * If true, disable all interactions for this component.
+   */
+  disabled?: boolean;
+  /**
+   * Changes Card shadow and background on iOS and Android.
+   */
+  elevation?: Elevation;
+  /**
+   * Style of card's content.
+   */
+  contentStyle?: StyleProp<ViewStyle>;
+  style?: StyleProp<SurfaceStyle>;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
   /**
    * Pass down testID from card props to touchable
    */
@@ -75,44 +102,36 @@ export type Props = React.ComponentProps<typeof Surface> & {
    * Pass down accessible from card props to touchable
    */
   accessible?: boolean;
+  /**
+   * Reference to the card container.
+   */
+  ref?: React.Ref<View>;
 };
+
+const DEFAULT_CARD_GAP = 16;
+const DEFAULT_CARD_PADDING = 16;
 
 /**
  * A card is a sheet of material that serves as an entry point to more detailed information.
  *
- * <div class="screenshots">
- *   <figure>
- *     <img src="screenshots/card-1.png" />
- *     <figcaption>Elevated card</figcaption>
- *   </figure>
- *   <figure>
- *     <img src="screenshots/card-2.png" />
- *     <figcaption>Outlined card</figcaption>
- *   </figure>
- *   <figure>
- *     <img src="screenshots/card-3.png" />
- *     <figcaption>Contained card</figcaption>
- *   </figure>
- * </div>
- *
  * ## Usage
  * ```js
  * import * as React from 'react';
- * import { Avatar, Button, Card, Title, Paragraph } from 'react-native-paper';
+ * import { Avatar, Button, Card, Text } from 'react-native-paper';
  *
  * const LeftContent = props => <Avatar.Icon {...props} icon="folder" />
  *
  * const MyComponent = () => (
  *   <Card>
+ *     <Card.Cover source={{ uri: 'https://picsum.photos/700' }} />
  *     <Card.Title title="Card Title" subtitle="Card Subtitle" left={LeftContent} />
  *     <Card.Content>
- *       <Title>Card title</Title>
- *       <Paragraph>Card content</Paragraph>
+ *       <Text variant="titleLarge">Card title</Text>
+ *       <Text variant="bodyMedium">Card content</Text>
  *     </Card.Content>
- *     <Card.Cover source={{ uri: 'https://picsum.photos/700' }} />
  *     <Card.Actions>
- *       <Button>Cancel</Button>
- *       <Button>Ok</Button>
+ *       <Button mode="outlined">Cancel</Button>
+ *       <Button mode="contained">Ok</Button>
  *     </Card.Actions>
  *   </Card>
  * );
@@ -122,16 +141,25 @@ export type Props = React.ComponentProps<typeof Surface> & {
  */
 const Card = ({
   elevation: cardElevation = 1,
-  onLongPress,
+  delayLongPress,
   onPress,
+  onLongPress,
+  onPressOut,
+  onPressIn,
   mode: cardMode = 'elevated',
+  direction: cardDirection = 'vertical',
   children,
   style,
-  theme,
+  contentStyle,
+  theme: themeOverrides,
   testID,
   accessible,
+  disabled,
+  ref,
   ...rest
 }: (OutlinedCardProps | ElevatedCardProps | ContainedCardProps) & Props) => {
+  const theme = useInternalTheme(themeOverrides);
+
   const isMode = React.useCallback(
     (modeToCompare: Mode) => {
       return cardMode === modeToCompare;
@@ -139,103 +167,77 @@ const Card = ({
     [cardMode]
   );
 
-  // Default animated value
-  const { current: elevation } = React.useRef<Animated.Value>(
-    new Animated.Value(cardElevation)
-  );
-  // Dark adaptive animated value, used in case of toggling the theme,
-  // it prevents animating the background with native drivers inside Surface
-  const { current: elevationDarkAdaptive } = React.useRef<Animated.Value>(
-    new Animated.Value(cardElevation)
-  );
-  const { animation, dark, mode, roundness, isV3 } = theme;
-
-  const prevDarkRef = React.useRef<boolean>(dark);
-  React.useEffect(() => {
-    prevDarkRef.current = dark;
+  const hasPassedTouchHandler = hasTouchHandler({
+    onPress,
+    onLongPress,
+    onPressIn,
+    onPressOut,
   });
 
-  const prevDark = prevDarkRef.current;
-  const isAdaptiveMode = mode === 'adaptive';
-  const animationDuration = 150 * animation.scale;
+  const [pressed, setPressed] = React.useState(false);
+  const elevation = isMode('elevated') ? (pressed ? 2 : cardElevation) : 0;
 
-  React.useEffect(() => {
-    /**
-     * Resets animations values if updating to dark adaptive mode,
-     * otherwise, any card that is in the middle of animation while
-     * toggling the theme will stay at that animated value until
-     * the next press-in
-     */
-    if (dark && isAdaptiveMode && !prevDark) {
-      elevation.setValue(cardElevation);
-      elevationDarkAdaptive.setValue(cardElevation);
+  const handlePressIn = useLatestCallback((e: GestureResponderEvent) => {
+    onPressIn?.(e);
+
+    if (isMode('elevated')) {
+      setPressed(true);
     }
-  }, [
-    prevDark,
-    dark,
-    isAdaptiveMode,
-    cardElevation,
-    elevation,
-    elevationDarkAdaptive,
-  ]);
+  });
 
-  const runElevationAnimation = (pressType: HandlePressType) => {
-    const isPressTypeIn = pressType === 'in';
-    if (dark && isAdaptiveMode) {
-      Animated.timing(elevationDarkAdaptive, {
-        toValue: isPressTypeIn ? (isV3 ? 2 : 8) : cardElevation,
-        duration: animationDuration,
-        useNativeDriver: false,
-      }).start();
-    } else {
-      Animated.timing(elevation, {
-        toValue: isPressTypeIn ? (isV3 ? 2 : 8) : cardElevation,
-        duration: animationDuration,
-        useNativeDriver: true,
-      }).start();
+  const handlePressOut = useLatestCallback((e: GestureResponderEvent) => {
+    onPressOut?.(e);
+
+    if (isMode('elevated')) {
+      setPressed(false);
     }
-  };
+  });
 
-  const handlePressIn = () => {
-    runElevationAnimation('in');
-  };
-
-  const handlePressOut = () => {
-    runElevationAnimation('out');
-  };
-
-  const total = React.Children.count(children);
-  const siblings = React.Children.map(children, (child) =>
-    React.isValidElement(child) && child.type
-      ? (child.type as any).displayName
-      : null
-  );
-  const computedElevation =
-    dark && isAdaptiveMode ? elevationDarkAdaptive : elevation;
-
-  const { backgroundColor, borderColor } = getCardColors({
+  const { backgroundColor, borderColor: themedBorderColor } = getCardColors({
     theme,
     mode: cardMode,
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  const flattenedStyles = (StyleSheet.flatten(style) || {}) as ViewStyle;
+
+  const { borderColor = themedBorderColor } = flattenedStyles;
+
+  const borderRadius = theme.shapes.corner.medium;
+
+  const cardContext = React.useMemo(
+    () => ({ padding: DEFAULT_CARD_PADDING, direction: cardDirection }),
+    [cardDirection]
+  );
+
+  const content = (
+    <CardContext.Provider value={cardContext}>
+      <View
+        style={[
+          styles.content,
+          { borderRadius },
+          cardDirection === 'horizontal' ? styles.horizontal : styles.vertical,
+          contentStyle,
+          {
+            padding: DEFAULT_CARD_PADDING,
+            gap: DEFAULT_CARD_GAP,
+          },
+        ]}
+      >
+        {children}
+      </View>
+    </CardContext.Provider>
+  );
+
   return (
     <Surface
-      style={[
-        {
-          borderRadius: roundness,
-        },
-        isV3 && { backgroundColor },
-        !isV3 && isMode('outlined')
-          ? styles.resetElevation
-          : {
-              elevation: computedElevation as unknown as number,
-            },
-        style,
-      ]}
+      ref={ref}
+      borderRadius={borderRadius}
+      backgroundColor={!isMode('elevated') ? backgroundColor : undefined}
+      style={[{ borderColor }, style]}
       theme={theme}
-      {...(isV3 && {
-        elevation: isMode('elevated') ? computedElevation : 0,
-      })}
+      elevation={elevation}
+      testID={hasPassedTouchHandler ? undefined : testID}
       {...rest}
     >
       {isMode('outlined') && (
@@ -243,38 +245,36 @@ const Card = ({
           pointerEvents="none"
           style={[
             {
-              borderRadius: roundness,
               borderColor,
             },
             styles.outline,
+            { borderRadius },
           ]}
         />
       )}
-      <TouchableWithoutFeedback
-        delayPressIn={0}
-        disabled={!(onPress || onLongPress)}
-        onLongPress={onLongPress}
-        onPress={onPress}
-        onPressIn={onPress || onLongPress ? handlePressIn : undefined}
-        onPressOut={onPress || onLongPress ? handlePressOut : undefined}
-        testID={testID}
-        accessible={accessible}
-      >
-        <View style={styles.innerContainer}>
-          {React.Children.map(children, (child, index) =>
-            React.isValidElement(child)
-              ? React.cloneElement(child, {
-                  index,
-                  total,
-                  siblings,
-                })
-              : child
-          )}
-        </View>
-      </TouchableWithoutFeedback>
+
+      {hasPassedTouchHandler ? (
+        <Pressable
+          accessible={accessible}
+          unstable_pressDelay={0}
+          disabled={disabled}
+          delayLongPress={delayLongPress}
+          onLongPress={onLongPress}
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          testID={testID}
+        >
+          {content}
+        </Pressable>
+      ) : (
+        content
+      )}
     </Surface>
   );
 };
+
+Card.displayName = 'Card';
 
 // @component ./CardContent.tsx
 Card.Content = CardContent;
@@ -286,9 +286,15 @@ Card.Cover = CardCover;
 Card.Title = CardTitle;
 
 const styles = StyleSheet.create({
-  innerContainer: {
-    flexGrow: 1,
+  content: {
     flexShrink: 1,
+    overflow: 'hidden',
+  },
+  horizontal: {
+    flexDirection: 'row',
+  },
+  vertical: {
+    flexDirection: 'column',
   },
   outline: {
     borderWidth: 1,
@@ -297,9 +303,6 @@ const styles = StyleSheet.create({
     height: '100%',
     zIndex: 2,
   },
-  resetElevation: {
-    elevation: 0,
-  },
 });
 
-export default withInternalTheme(Card);
+export default Card;

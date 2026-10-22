@@ -1,31 +1,52 @@
 import * as React from 'react';
-import {
-  Animated,
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import type {
+  GestureResponderEvent,
   NativeSyntheticEvent,
-  Platform,
   StyleProp,
-  StyleSheet,
   TextLayoutEventData,
-  TouchableWithoutFeedback,
-  View,
+  ViewProps,
   ViewStyle,
 } from 'react-native';
 
-import { withInternalTheme } from '../../core/theming';
-import type { InternalTheme } from '../../types';
+import Animated, {
+  Easing,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
 import Badge from '../Badge';
-import Icon, { IconSource } from '../Icon';
+import Icon from '../Icon';
+import type { IconSource } from '../Icon';
 import Text from '../Typography/Text';
 
-export type Props = React.ComponentPropsWithRef<typeof View> & {
+export type Props = ViewProps & {
   /**
    * The label text of the item.
    */
   label?: string;
   /**
-   * Icon to display for the `DrawerCollapsedItem`.
+   * Badge to show on the icon, can be `true` to show a dot, `string` or `number` to show text.
    */
-  icon?: IconSource;
+  badge?: string | number | boolean;
+  /**
+   * Whether the item is disabled.
+   */
+  disabled?: boolean;
+  /**
+   * @renamed Renamed from 'icon' to 'focusedIcon' in v5.x
+   * Icon to use as the focused destination icon, can be a string, an image source or a react component
+   */
+  focusedIcon?: IconSource;
+  /**
+   * @renamed Renamed from 'icon' to 'focusedIcon' in v5.x
+   * Icon to use as the unfocused destination icon, can be a string, an image source or a react component
+   */
+  unfocusedIcon?: IconSource;
   /**
    * Whether to highlight the drawer item as active.
    */
@@ -33,36 +54,35 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
   /**
    * Function to execute on press.
    */
-  onPress?: () => void;
+  onPress?: (e: GestureResponderEvent) => void;
+  /**
+   * Specifies the largest possible scale a label font can reach.
+   */
+  labelMaxFontSizeMultiplier?: number;
   /**
    * Accessibility label for the button. This is read by the screen reader when the user taps the button.
    */
-  accessibilityLabel?: string;
+  'aria-label'?: string;
   style?: StyleProp<ViewStyle>;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
+
   /**
-   * Badge to show on the icon, can be `true` to show a dot, `string` or `number` to show text.
+   * TestID used for testing purposes
    */
-  badge?: string | number | boolean;
+  testID?: string;
 };
 
-const badgeSize = 8;
 const iconSize = 24;
 const itemSize = 56;
 const outlineHeight = 32;
 
 /**
- * @supported Available in v5.x with theme version 3
- * Collapsed component used to show an action item with an icon and optionally label in a navigation drawer.
+ * Note: Available in v5.x with theme version 3
  *
- * <div class="screenshots">
- *   <figure>
- *     <img class="small" src="screenshots/drawer-collapsed.png" />
- *   </figure>
- * </div>
+ * Collapsed component used to show an action item with an icon and optionally label in a navigation drawer.
  *
  * ## Usage
  * ```js
@@ -70,51 +90,50 @@ const outlineHeight = 32;
  * import { Drawer } from 'react-native-paper';
  *
  * const MyComponent = () => (
- *    <Drawer.CollapsedItem
- *      icon="inbox"
- *      label="Inbox"
- *    />
+ *   <Drawer.CollapsedItem
+ *     focusedIcon="inbox"
+ *     unfocusedIcon="inbox-outline"
+ *     label="Inbox"
+ *   />
  * );
  *
  * export default MyComponent;
  * ```
  */
 const DrawerCollapsedItem = ({
-  icon,
+  focusedIcon,
+  unfocusedIcon,
   label,
   active,
-  theme,
+  theme: themeOverrides,
   style,
   onPress,
-  accessibilityLabel,
+  disabled,
+  'aria-label': ariaLabel,
   badge = false,
+  testID,
+  labelMaxFontSizeMultiplier,
   ...rest
 }: Props) => {
-  const { isV3 } = theme;
+  const theme = useInternalTheme(themeOverrides);
   const { scale } = theme.animation;
 
   const [numOfLines, setNumOfLines] = React.useState(1);
 
-  const { current: animScale } = React.useRef<Animated.Value>(
-    new Animated.Value(active ? 1 : 0.5)
-  );
+  const outlineScale = useSharedValue(active ? 1 : 0.5);
 
   React.useEffect(() => {
     if (!active) {
-      animScale.setValue(0.5);
+      outlineScale.value = 0.5;
     }
-  }, [animScale, active]);
-
-  if (!isV3) {
-    return null;
-  }
+  }, [active, outlineScale]);
 
   const handlePressOut = () => {
-    Animated.timing(animScale, {
-      toValue: 1,
+    outlineScale.value = withTiming(1, {
       duration: 150 * scale,
-      useNativeDriver: true,
-    }).start();
+      easing: Easing.inOut(Easing.ease),
+      reduceMotion: ReduceMotion.Never,
+    });
   };
 
   const iconPadding = ((!label ? itemSize : outlineHeight) - iconSize) / 2;
@@ -122,9 +141,11 @@ const DrawerCollapsedItem = ({
   const backgroundColor = active
     ? theme.colors.secondaryContainer
     : 'transparent';
+
   const labelColor = active
     ? theme.colors.onSurface
     : theme.colors.onSurfaceVariant;
+
   const iconColor = active
     ? theme.colors.onSecondaryContainer
     : theme.colors.onSurfaceVariant;
@@ -142,50 +163,47 @@ const DrawerCollapsedItem = ({
 
   const labelTextStyle = {
     color: labelColor,
-    ...(isV3 ? theme.fonts.labelMedium : {}),
+    ...theme.fonts.labelMedium,
   };
+
+  const icon =
+    !active && unfocusedIcon !== undefined ? unfocusedIcon : focusedIcon;
+
+  const animatedOutlineStyle = useAnimatedStyle(() => ({
+    transform: [
+      label ? { scaleX: outlineScale.value } : { scale: outlineScale.value },
+    ],
+  }));
 
   return (
     <View {...rest}>
-      {/* eslint-disable-next-line react-native-a11y/has-accessibility-props */}
-      <TouchableWithoutFeedback
+      <Pressable
         onPress={onPress}
         onPressOut={onPress ? handlePressOut : undefined}
-        // @ts-expect-error We keep old a11y props for backwards compat with old RN versions
-        accessibilityTraits={active ? ['button', 'selected'] : 'button'}
-        accessibilityComponentType="button"
-        accessibilityRole="button"
-        accessibilityState={{ selected: active }}
-        accessibilityLabel={accessibilityLabel}
+        disabled={disabled}
+        role="button"
+        aria-selected={active}
+        aria-label={ariaLabel}
+        testID={testID}
       >
         <View style={styles.wrapper}>
           <Animated.View
             style={[
               styles.outline,
               !label && styles.roundedOutline,
-              {
-                transform: [
-                  label
-                    ? {
-                        scaleX: animScale,
-                      }
-                    : { scale: animScale },
-                ],
-                backgroundColor,
-              },
+              { backgroundColor },
               style,
+              animatedOutlineStyle,
             ]}
           />
 
           <View style={[styles.icon, { top: iconPadding }]}>
-            {badge && (
+            {badge !== false && (
               <View style={styles.badgeContainer}>
                 {typeof badge === 'boolean' ? (
-                  <Badge visible={badge} size={badgeSize} />
+                  <Badge visible={badge} />
                 ) : (
-                  <Badge visible={badge != null} size={2 * badgeSize}>
-                    {badge}
-                  </Badge>
+                  <Badge visible={badge != null}>{badge}</Badge>
                 )}
               </View>
             )}
@@ -199,12 +217,13 @@ const DrawerCollapsedItem = ({
               numberOfLines={2}
               onTextLayout={onTextLayout}
               style={[styles.label, androidLetterSpacingStyle, labelTextStyle]}
+              maxFontSizeMultiplier={labelMaxFontSizeMultiplier}
             >
               {label}
             </Text>
           ) : null}
         </View>
-      </TouchableWithoutFeedback>
+      </Pressable>
     </View>
   );
 };
@@ -248,4 +267,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default withInternalTheme(DrawerCollapsedItem);
+export default DrawerCollapsedItem;

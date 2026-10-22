@@ -1,31 +1,23 @@
 import * as React from 'react';
-import { I18nManager, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
+import type { ColorValue } from 'react-native';
 
 import { DrawerContentScrollView } from '@react-navigation/drawer';
-import * as Updates from 'expo-updates';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import {
   Badge,
+  Button,
+  Dialog,
   Drawer,
-  MD2Colors,
-  MD3Colors,
+  Palette,
   Switch,
   Text,
   TouchableRipple,
+  useTheme,
 } from 'react-native-paper';
 
-import { isWeb } from '../utils';
-
-import { PreferencesContext, useExampleTheme } from './';
-
-type Props = {
-  toggleTheme: () => void;
-  toggleRTL: () => void;
-  toggleThemeVersion: () => void;
-  toggleCollapsed: () => void;
-  collapsed: boolean;
-  isRTL: boolean;
-  isDarkTheme: boolean;
-};
+import { dynamicThemeSupported } from '../utils';
+import { PreferencesContext } from './PreferencesContext';
 
 const DrawerItemsData = [
   {
@@ -38,12 +30,8 @@ const DrawerItemsData = [
     label: 'Starred',
     icon: 'star',
     key: 1,
-    right: ({ color }: { color: string }) => (
-      <Badge
-        visible
-        size={8}
-        style={[styles.badge, { backgroundColor: color }]}
-      />
+    right: ({ color }: { color: ColorValue }) => (
+      <Badge visible style={[styles.badge, { backgroundColor: color }]} />
     ),
   },
   { label: 'Sent mail', icon: 'send', key: 2 },
@@ -52,69 +40,95 @@ const DrawerItemsData = [
     label: 'A very long title that will be truncated',
     icon: 'delete',
     key: 4,
-    right: () => <Badge visible size={8} style={styles.badge} />,
+    right: () => <Badge visible style={styles.badge} />,
   },
 ];
 
 const DrawerCollapsedItemsData = [
   {
     label: 'Inbox',
-    icon: 'inbox',
+    focusedIcon: 'inbox',
+    unfocusedIcon: 'inbox-outline',
     key: 0,
     badge: 44,
   },
   {
     label: 'Starred',
-    icon: 'star',
+    focusedIcon: 'star',
+    unfocusedIcon: 'star-outline',
     key: 1,
   },
-  { label: 'Sent mail', icon: 'send', key: 2 },
+  {
+    label: 'Sent mail',
+    focusedIcon: 'send',
+    unfocusedIcon: 'send-outline',
+    key: 2,
+  },
   {
     label: 'A very long title that will be truncated',
-    icon: 'delete',
+    focusedIcon: 'delete',
+    unfocusedIcon: 'delete-outline',
     key: 3,
   },
-  { label: 'Full width', icon: 'arrow-all', key: 4 },
   {
-    icon: 'bell',
+    label: 'Full width',
+    focusedIcon: 'arrow-all',
+    key: 4,
+  },
+  {
+    focusedIcon: 'bell',
+    unfocusedIcon: 'bell-outline',
     key: 5,
     badge: true,
   },
 ];
 
-const DrawerItems = ({
-  toggleTheme,
-  toggleRTL,
-  toggleThemeVersion,
-  toggleCollapsed,
-  collapsed,
-  isRTL,
-  isDarkTheme,
-}: Props) => {
+function DrawerItems() {
   const [drawerItemIndex, setDrawerItemIndex] = React.useState<number>(0);
+  const [showRTLDialog, setShowRTLDialog] = React.useState(false);
   const preferences = React.useContext(PreferencesContext);
 
   const _setDrawerItem = (index: number) => setDrawerItemIndex(index);
 
-  const { isV3, colors } = useExampleTheme();
+  const { colors } = useTheme();
+  const expoGoExecution =
+    Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+  if (!preferences) throw new Error('PreferencesContext not provided');
+
+  const {
+    toggleShouldUseDynamicTheme,
+    toggleTheme,
+    toggleRtl: toggleRTL,
+    toggleCollapsed,
+    toggleCustomFont,
+    toggleRippleEffect,
+    customFontLoaded,
+    rippleEffectEnabled,
+    collapsed,
+    rtl: isRTL,
+    theme: { dark: isDarkTheme },
+    shouldUseDynamicTheme,
+  } = preferences;
 
   const _handleToggleRTL = () => {
-    toggleRTL();
-    I18nManager.forceRTL(!isRTL);
-    if (isWeb) {
-      Updates.reloadAsync();
+    if (Platform.OS !== 'web' && expoGoExecution) {
+      setShowRTLDialog(true);
+      return;
     }
+
+    toggleRTL();
+  };
+
+  const _handleDismissRTLDialog = () => {
+    setShowRTLDialog(false);
   };
 
   const coloredLabelTheme = {
-    colors: isV3
-      ? {
-          secondaryContainer: MD3Colors.tertiary80,
-          onSecondaryContainer: MD3Colors.tertiary20,
-        }
-      : {
-          primary: MD2Colors.tealA200,
-        },
+    colors: {
+      secondaryContainer: Palette.tertiary80,
+      onSecondaryContainer: Palette.tertiary20,
+    },
   };
 
   return (
@@ -127,8 +141,8 @@ const DrawerItems = ({
         },
       ]}
     >
-      {isV3 && collapsed && (
-        <Drawer.Section>
+      {collapsed && (
+        <Drawer.Section style={styles.collapsedSection}>
           {DrawerCollapsedItemsData.map((props, index) => (
             <Drawer.CollapsedItem
               {...props}
@@ -136,7 +150,7 @@ const DrawerItems = ({
               active={drawerItemIndex === index}
               onPress={() => {
                 _setDrawerItem(index);
-                index === 4 && preferences.toggleCollapsed();
+                index === 4 && toggleCollapsed();
               }}
             />
           ))}
@@ -157,8 +171,18 @@ const DrawerItems = ({
           </Drawer.Section>
 
           <Drawer.Section title="Preferences">
+            {dynamicThemeSupported ? (
+              <TouchableRipple onPress={toggleShouldUseDynamicTheme}>
+                <View style={[styles.preference, styles.v3Preference]}>
+                  <Text variant="labelLarge">Use Dynamic Theme</Text>
+                  <View pointerEvents="none">
+                    <Switch value={shouldUseDynamicTheme} />
+                  </View>
+                </View>
+              </TouchableRipple>
+            ) : null}
             <TouchableRipple onPress={toggleTheme}>
-              <View style={[styles.preference, isV3 && styles.v3Preference]}>
+              <View style={[styles.preference, styles.v3Preference]}>
                 <Text variant="labelLarge">Dark Theme</Text>
                 <View pointerEvents="none">
                   <Switch value={isDarkTheme} />
@@ -167,7 +191,7 @@ const DrawerItems = ({
             </TouchableRipple>
 
             <TouchableRipple onPress={_handleToggleRTL}>
-              <View style={[styles.preference, isV3 && styles.v3Preference]}>
+              <View style={[styles.preference, styles.v3Preference]}>
                 <Text variant="labelLarge">RTL</Text>
                 <View pointerEvents="none">
                   <Switch value={isRTL} />
@@ -175,31 +199,65 @@ const DrawerItems = ({
               </View>
             </TouchableRipple>
 
-            <TouchableRipple onPress={toggleThemeVersion}>
-              <View style={[styles.preference, isV3 && styles.v3Preference]}>
-                <Text variant="labelLarge">Switch back to Material 2</Text>
+            <TouchableRipple onPress={toggleCollapsed}>
+              <View style={[styles.preference, styles.v3Preference]}>
+                <Text variant="labelLarge">Collapsed drawer *</Text>
                 <View pointerEvents="none">
-                  <Switch value={!isV3} />
+                  <Switch value={collapsed} />
                 </View>
               </View>
             </TouchableRipple>
 
-            {isV3 && (
-              <TouchableRipple onPress={toggleCollapsed}>
-                <View style={[styles.preference, isV3 && styles.v3Preference]}>
-                  <Text variant="labelLarge">Collapsed drawer</Text>
-                  <View pointerEvents="none">
-                    <Switch value={collapsed} />
-                  </View>
+            <TouchableRipple onPress={toggleCustomFont}>
+              <View style={[styles.preference, styles.v3Preference]}>
+                <Text variant="labelLarge">Custom font *</Text>
+                <View pointerEvents="none">
+                  <Switch value={customFontLoaded} />
                 </View>
-              </TouchableRipple>
-            )}
+              </View>
+            </TouchableRipple>
+
+            <TouchableRipple onPress={toggleRippleEffect}>
+              <View style={[styles.preference, styles.v3Preference]}>
+                <Text variant="labelLarge">
+                  {Platform.OS === 'ios' ? 'Highlight' : 'Ripple'} effect *
+                </Text>
+                <View pointerEvents="none">
+                  <Switch value={rippleEffectEnabled} />
+                </View>
+              </View>
+            </TouchableRipple>
           </Drawer.Section>
+          {!collapsed && (
+            <Text variant="bodySmall" style={styles.annotation}>
+              * - optional example toggles
+            </Text>
+          )}
+          <Text variant="bodySmall" style={styles.annotation}>
+            React Native Paper Version{' '}
+            {require('react-native-paper/package.json').version}
+          </Text>
         </>
       )}
+      <Dialog visible={showRTLDialog} onDismiss={_handleDismissRTLDialog}>
+        <Dialog.Title>Changing to RTL</Dialog.Title>
+        <Dialog.Content>
+          <Text variant="bodyMedium">
+            Due to Expo Go limitations it is impossible to change RTL
+            dynamically. To do so, you need to create a development build of
+            Example app or change it statically by setting{' '}
+            <Text variant="labelMedium">forcesRTL</Text> property to true in{' '}
+            <Text variant="labelMedium">app.json</Text> within{' '}
+            <Text variant="labelMedium">example</Text> directory.
+          </Text>
+          <Dialog.Actions>
+            <Button onPress={_handleDismissRTLDialog}>Ok</Button>
+          </Dialog.Actions>
+        </Dialog.Content>
+      </Dialog>
     </DrawerContentScrollView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   drawerContent: {
@@ -218,6 +276,13 @@ const styles = StyleSheet.create({
   },
   badge: {
     alignSelf: 'center',
+  },
+  collapsedSection: {
+    marginTop: 16,
+  },
+  annotation: {
+    marginHorizontal: 24,
+    marginVertical: 6,
   },
 });
 

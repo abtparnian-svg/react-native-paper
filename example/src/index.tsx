@@ -1,101 +1,114 @@
 import * as React from 'react';
-import { I18nManager, StyleSheet } from 'react-native';
+import { I18nManager, Platform } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createDrawerNavigator } from '@react-navigation/drawer';
-import { InitialState, NavigationContainer } from '@react-navigation/native';
+import {
+  createDrawerNavigator,
+  createDrawerScreen,
+} from '@react-navigation/drawer';
+import { createStaticNavigation } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
 import { useKeepAwake } from 'expo-keep-awake';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as Updates from 'expo-updates';
 import {
-  Provider as PaperProvider,
-  MD3DarkTheme,
-  MD3LightTheme,
-  MD2DarkTheme,
-  MD2LightTheme,
-  MD2Theme,
-  MD3Theme,
-  useTheme,
+  PaperProvider,
+  DarkTheme,
+  LightTheme,
+  DynamicLightTheme,
+  DynamicDarkTheme,
 } from 'react-native-paper';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { isWeb } from '../utils';
 import DrawerItems from './DrawerItems';
+import { PreferencesContext } from './PreferencesContext';
 import App from './RootNavigator';
+import { dynamicThemeSupported } from '../utils';
+import {
+  CombinedDarkTheme,
+  CombinedDefaultTheme,
+  createConfiguredFontNavigationTheme,
+  createConfiguredFontTheme,
+} from '../utils/themes';
 
 const PERSISTENCE_KEY = 'NAVIGATION_STATE';
 const PREFERENCES_KEY = 'APP_PREFERENCES';
 
-export const PreferencesContext = React.createContext<any>(null);
+const getInitialRtl = () => {
+  if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    return document.documentElement.dir === 'rtl';
+  }
 
-export const useExampleTheme = () => useTheme<MD2Theme | MD3Theme>();
-
-const DrawerContent = () => {
-  return (
-    <PreferencesContext.Consumer>
-      {(preferences) => (
-        <DrawerItems
-          toggleTheme={preferences.toggleTheme}
-          toggleRTL={preferences.toggleRtl}
-          toggleThemeVersion={preferences.toggleThemeVersion}
-          toggleCollapsed={preferences.toggleCollapsed}
-          collapsed={preferences.collapsed}
-          isRTL={preferences.rtl}
-          isDarkTheme={preferences.theme.dark}
-        />
-      )}
-    </PreferencesContext.Consumer>
-  );
+  return I18nManager.getConstants().isRTL;
 };
 
-const Drawer = createDrawerNavigator<{ Home: undefined }>();
+const Drawer = createDrawerNavigator({
+  screens: {
+    Home: createDrawerScreen({
+      screen: App,
+      options: {
+        headerShown: false,
+      },
+      linking: {
+        path: '',
+        initialRouteName: 'ExampleList',
+      },
+    }),
+  },
+}).with(({ Navigator }) => {
+  const preferences = React.useContext(PreferencesContext);
+  const insets = useSafeAreaInsets();
+  const { left, right } = insets || { left: 0, right: 0 };
+  const collapsedDrawerWidth = 100 + Math.max(left, right);
+
+  return (
+    <Navigator
+      screenOptions={{
+        drawerStyle: preferences?.collapsed && {
+          width: collapsedDrawerWidth,
+        },
+      }}
+      drawerContent={() => <DrawerItems />}
+    />
+  );
+});
+
+const Navigation = createStaticNavigation(Drawer);
+
+type RootDrawerType = typeof Drawer;
+
+declare module '@react-navigation/core' {
+  interface RootNavigator extends RootDrawerType {}
+}
 
 export default function PaperExample() {
   useKeepAwake();
 
+  const [fontsLoaded] = useFonts({
+    Abel: require('../assets/fonts/Abel-Regular.ttf'),
+  });
+
   const [isReady, setIsReady] = React.useState(false);
-  const [initialState, setInitialState] = React.useState<
-    InitialState | undefined
-  >();
 
+  const [shouldUseDynamicTheme, setShouldUseDynamicTheme] =
+    React.useState(true);
   const [isDarkMode, setIsDarkMode] = React.useState(false);
-  const [themeVersion, setThemeVersion] = React.useState<2 | 3>(3);
-  const [rtl, setRtl] = React.useState<boolean>(
-    I18nManager.getConstants().isRTL
-  );
+  const [rtl, setRtl] = React.useState(getInitialRtl);
   const [collapsed, setCollapsed] = React.useState(false);
+  const [customFontLoaded, setCustomFont] = React.useState(false);
+  const [rippleEffectEnabled, setRippleEffectEnabled] = React.useState(true);
 
-  const themeMode = isDarkMode ? 'dark' : 'light';
+  const theme =
+    dynamicThemeSupported && shouldUseDynamicTheme
+      ? isDarkMode
+        ? DynamicDarkTheme
+        : DynamicLightTheme
+      : isDarkMode
+        ? DarkTheme
+        : LightTheme;
 
-  const theme = {
-    2: {
-      light: MD2LightTheme,
-      dark: MD2DarkTheme,
-    },
-    3: {
-      light: MD3LightTheme,
-      dark: MD3DarkTheme,
-    },
-  }[themeVersion][themeMode];
-
-  React.useEffect(() => {
-    const restoreState = async () => {
-      try {
-        const savedStateString = await AsyncStorage.getItem(PERSISTENCE_KEY);
-        const state = JSON.parse(savedStateString || '');
-
-        setInitialState(state);
-      } catch (e) {
-        // ignore error
-      } finally {
-        setIsReady(true);
-      }
-    };
-
-    if (!isReady) {
-      restoreState();
-    }
-  }, [isReady]);
+  const direction = rtl ? 'rtl' : 'ltr';
 
   React.useEffect(() => {
     const restorePrefs = async () => {
@@ -112,19 +125,25 @@ export default function PaperExample() {
         }
       } catch (e) {
         // ignore error
+      } finally {
+        setIsReady(true);
       }
     };
 
-    restorePrefs();
+    void restorePrefs();
   }, []);
 
   React.useEffect(() => {
     const savePrefs = async () => {
+      if (!isReady) {
+        return;
+      }
+
       try {
         await AsyncStorage.setItem(
           PREFERENCES_KEY,
           JSON.stringify({
-            theme: themeMode,
+            theme: isDarkMode ? 'dark' : 'light',
             rtl,
           })
         );
@@ -132,73 +151,92 @@ export default function PaperExample() {
         // ignore error
       }
 
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        document.documentElement.dir = direction;
+      }
+
       if (I18nManager.getConstants().isRTL !== rtl) {
         I18nManager.forceRTL(rtl);
-        if (!isWeb) {
-          Updates.reloadAsync();
+
+        if (Platform.OS !== 'web') {
+          await Updates.reloadAsync();
         }
       }
     };
 
-    savePrefs();
-  }, [rtl, themeMode]);
+    void savePrefs();
+  }, [direction, isDarkMode, isReady, rtl]);
 
   const preferences = React.useMemo(
     () => ({
+      toggleShouldUseDynamicTheme: () =>
+        setShouldUseDynamicTheme((oldValue) => !oldValue),
       toggleTheme: () => setIsDarkMode((oldValue) => !oldValue),
-      toggleRtl: () => setRtl((rtl) => !rtl),
-      toggleCollapsed: () => setCollapsed(!collapsed),
-      toggleThemeVersion: () =>
-        setThemeVersion((oldThemeVersion) => (oldThemeVersion === 2 ? 3 : 2)),
+      toggleRtl: () => setRtl((oldValue) => !oldValue),
+      toggleCollapsed: () => setCollapsed((oldValue) => !oldValue),
+      toggleCustomFont: () => setCustomFont((oldValue) => !oldValue),
+      toggleRippleEffect: () => setRippleEffectEnabled((oldValue) => !oldValue),
+      customFontLoaded,
+      rippleEffectEnabled,
+      shouldUseDynamicTheme,
+      theme,
       collapsed,
       rtl,
-      theme,
     }),
-    [rtl, theme, collapsed]
+    [
+      rtl,
+      theme,
+      collapsed,
+      customFontLoaded,
+      shouldUseDynamicTheme,
+      rippleEffectEnabled,
+    ]
   );
 
-  if (!isReady) {
+  if (!isReady || !fontsLoaded) {
     return null;
   }
 
+  const combinedTheme = isDarkMode ? CombinedDarkTheme : CombinedDefaultTheme;
+  const configuredFontTheme = createConfiguredFontTheme(combinedTheme);
+  const configuredFontNavigationTheme =
+    createConfiguredFontNavigationTheme(combinedTheme);
+  const paperTheme = customFontLoaded ? configuredFontTheme : theme;
+  const navigationTheme = customFontLoaded
+    ? configuredFontNavigationTheme
+    : combinedTheme;
+
   return (
-    <PaperProvider theme={theme}>
-      <SafeAreaProvider>
-        <PreferencesContext.Provider value={preferences}>
-          <React.Fragment>
-            <NavigationContainer
-              initialState={initialState}
-              onStateChange={(state) =>
-                AsyncStorage.setItem(PERSISTENCE_KEY, JSON.stringify(state))
-              }
-            >
-              {isWeb ? (
-                <App />
-              ) : (
-                <Drawer.Navigator
-                  screenOptions={{
-                    drawerStyle: collapsed && styles.collapsed,
-                  }}
-                  drawerContent={() => <DrawerContent />}
-                >
-                  <Drawer.Screen
-                    name="Home"
-                    component={App}
-                    options={{ headerShown: false }}
-                  />
-                </Drawer.Navigator>
-              )}
-              <StatusBar style={!theme.isV3 || theme.dark ? 'light' : 'dark'} />
-            </NavigationContainer>
-          </React.Fragment>
-        </PreferencesContext.Provider>
-      </SafeAreaProvider>
+    <PaperProvider
+      direction={direction}
+      settings={{ rippleEffectEnabled: preferences.rippleEffectEnabled }}
+      theme={paperTheme}
+    >
+      <PreferencesContext.Provider value={preferences}>
+        <Navigation
+          theme={navigationTheme}
+          direction={direction}
+          persistor={{
+            async persist(state) {
+              await AsyncStorage.setItem(
+                PERSISTENCE_KEY,
+                JSON.stringify(state)
+              );
+            },
+            async restore() {
+              const state = await AsyncStorage.getItem(PERSISTENCE_KEY);
+
+              return state ? JSON.parse(state) : undefined;
+            },
+          }}
+          onReady={() => {
+            void SplashScreen.hideAsync();
+          }}
+        />
+        {Platform.OS !== 'web' ? (
+          <StatusBar style={theme.dark ? 'light' : 'dark'} />
+        ) : null}
+      </PreferencesContext.Provider>
     </PaperProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  collapsed: {
-    width: 80,
-  },
-});

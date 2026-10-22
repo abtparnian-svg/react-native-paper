@@ -1,6 +1,9 @@
-import color from 'color';
+import type { ColorValue } from 'react-native';
 
-import type { InternalTheme } from '../../types';
+import { tokens } from '../../theme/tokens';
+import type { InternalTheme } from '../../theme/types';
+
+const stateOpacity = tokens.md.sys.state.opacity;
 
 type IconButtonMode = 'outlined' | 'contained' | 'contained-tonal';
 
@@ -11,65 +14,41 @@ type BaseProps = {
   selected?: boolean;
 };
 
-const getBorderColor = ({
-  theme,
-  disabled,
-}: {
-  theme: InternalTheme;
-  disabled?: boolean;
-}) => {
-  if (theme.isV3) {
-    if (disabled) {
-      return theme.colors.surfaceDisabled;
-    }
-
-    return theme.colors.outline;
-  }
-
-  return undefined;
-};
-
 const getBackgroundColor = ({
   theme,
   isMode,
   disabled,
   selected,
   customContainerColor,
-}: BaseProps & { customContainerColor?: string }) => {
-  if (theme.isV3) {
-    if (disabled) {
-      if (isMode('contained') || isMode('contained-tonal')) {
-        return theme.colors.surfaceDisabled;
-      }
-    }
-
-    if (typeof customContainerColor !== 'undefined') {
-      return customContainerColor;
-    }
-
-    if (isMode('contained')) {
-      if (selected) {
-        return theme.colors.primary;
-      }
-      return theme.colors.surfaceVariant;
-    }
-
-    if (isMode('contained-tonal')) {
-      if (selected) {
-        return theme.colors.secondaryContainer;
-      }
-      return theme.colors.surfaceVariant;
-    }
-
-    if (isMode('outlined')) {
-      if (selected) {
-        return theme.colors.inverseSurface;
-      }
+}: BaseProps & { customContainerColor?: ColorValue }) => {
+  if (disabled) {
+    if (isMode('contained') || isMode('contained-tonal')) {
+      return theme.colors.onSurface;
     }
   }
 
   if (typeof customContainerColor !== 'undefined') {
     return customContainerColor;
+  }
+
+  if (isMode('contained')) {
+    if (selected) {
+      return theme.colors.primary;
+    }
+    return theme.colors.surfaceVariant;
+  }
+
+  if (isMode('contained-tonal')) {
+    if (selected) {
+      return theme.colors.secondaryContainer;
+    }
+    return theme.colors.surfaceVariant;
+  }
+
+  if (isMode('outlined')) {
+    if (selected) {
+      return theme.colors.inverseSurface;
+    }
   }
 
   return undefined;
@@ -81,61 +60,40 @@ const getIconColor = ({
   disabled,
   selected,
   customIconColor,
-}: BaseProps & { customIconColor?: string }) => {
-  if (theme.isV3) {
-    if (disabled) {
-      return theme.colors.onSurfaceDisabled;
-    }
-
-    if (typeof customIconColor !== 'undefined') {
-      return customIconColor;
-    }
-
-    if (isMode('contained')) {
-      if (selected) {
-        return theme.colors.onPrimary;
-      }
-      return theme.colors.primary;
-    }
-
-    if (isMode('contained-tonal')) {
-      if (selected) {
-        return theme.colors.onSecondaryContainer;
-      }
-      return theme.colors.onSurfaceVariant;
-    }
-
-    if (isMode('outlined')) {
-      if (selected) {
-        return theme.colors.inverseOnSurface;
-      }
-      return theme.colors.onSurfaceVariant;
-    }
-
-    if (selected) {
-      return theme.colors.primary;
-    }
-    return theme.colors.onSurfaceVariant;
+}: BaseProps & { customIconColor?: ColorValue }) => {
+  if (disabled) {
+    return theme.colors.onSurface;
   }
 
   if (typeof customIconColor !== 'undefined') {
     return customIconColor;
   }
 
-  return theme.colors.text;
-};
-
-const getRippleColor = ({
-  theme,
-  iconColor,
-}: {
-  theme: InternalTheme;
-  iconColor: string;
-}) => {
-  if (theme.isV3) {
-    return color(iconColor).alpha(0.12).rgb().string();
+  if (isMode('contained')) {
+    if (selected) {
+      return theme.colors.onPrimary;
+    }
+    return theme.colors.primary;
   }
-  return color(iconColor).alpha(0.32).rgb().string();
+
+  if (isMode('contained-tonal')) {
+    if (selected) {
+      return theme.colors.onSecondaryContainer;
+    }
+    return theme.colors.onSurfaceVariant;
+  }
+
+  if (isMode('outlined')) {
+    if (selected) {
+      return theme.colors.inverseOnSurface;
+    }
+    return theme.colors.onSurfaceVariant;
+  }
+
+  if (selected) {
+    return theme.colors.primary;
+  }
+  return theme.colors.onSurfaceVariant;
 };
 
 export const getIconButtonColor = ({
@@ -150,8 +108,8 @@ export const getIconButtonColor = ({
   disabled?: boolean;
   selected?: boolean;
   mode?: IconButtonMode;
-  customIconColor?: string;
-  customContainerColor?: string;
+  customIconColor?: ColorValue;
+  customContainerColor?: ColorValue;
 }) => {
   const isMode = (modeToCompare: IconButtonMode) => {
     return mode === modeToCompare;
@@ -169,13 +127,23 @@ export const getIconButtonColor = ({
     customIconColor,
   });
 
+  const iconOpacity = disabled ? stateOpacity.disabled : stateOpacity.enabled;
+
+  const backgroundColor = getBackgroundColor({
+    ...baseIconColorProps,
+    customContainerColor,
+  });
+
+  const backgroundOpacity =
+    disabled && (isMode('contained') || isMode('contained-tonal'))
+      ? stateOpacity.disabled
+      : stateOpacity.enabled;
+
   return {
     iconColor,
-    backgroundColor: getBackgroundColor({
-      ...baseIconColorProps,
-      customContainerColor,
-    }),
-    rippleColor: getRippleColor({ theme, iconColor }),
-    borderColor: getBorderColor({ theme, disabled }),
+    iconOpacity,
+    backgroundColor,
+    borderColor: theme.colors.outlineVariant,
+    backgroundOpacity,
   };
 };

@@ -1,58 +1,41 @@
-import color from 'color';
+import type { StyleProp, ViewStyle } from 'react-native';
 
-import { black, white } from '../../styles/themes/v2/colors';
-import type { InternalTheme } from '../../types';
+import type { InternalTheme } from '../../theme/types';
 
 type CardMode = 'elevated' | 'outlined' | 'contained';
 
+type BorderRadiusStyles = Pick<
+  ViewStyle,
+  Extract<keyof ViewStyle, `border${string}Radius`>
+>;
+
+export type CardActionChildProps = {
+  compact?: boolean;
+  mode?: string;
+  style?: StyleProp<ViewStyle>;
+};
+
 export const getCardCoverStyle = ({
   theme,
-  index,
-  total,
+  borderRadiusStyles,
 }: {
   theme: InternalTheme;
-  index?: number;
-  total?: number;
+  borderRadiusStyles: BorderRadiusStyles;
 }) => {
-  const { isV3, roundness } = theme;
-
-  if (index === 0) {
-    if (total === 1) {
-      return {
-        borderRadius: roundness,
-      };
-    }
-
-    if (isV3) {
-      return {
-        borderRadius: roundness,
-      };
-    }
-
+  if (Object.keys(borderRadiusStyles).length > 0) {
     return {
-      borderTopLeftRadius: roundness,
-      borderTopRightRadius: roundness,
+      borderRadius: theme.shapes.corner.medium,
+      ...borderRadiusStyles,
     };
   }
 
-  if (typeof total === 'number' && index === total - 1) {
-    return {
-      borderBottomLeftRadius: roundness,
-    };
-  }
-
-  return undefined;
+  return {
+    borderRadius: theme.shapes.corner.medium,
+  };
 };
 
 const getBorderColor = ({ theme }: { theme: InternalTheme }) => {
-  if (theme.isV3) {
-    return theme.colors.outline;
-  }
-
-  if (theme.dark) {
-    return color(white).alpha(0.12).rgb().string();
-  }
-  return color(black).alpha(0.12).rgb().string();
+  return theme.colors.outline;
 };
 
 const getBackgroundColor = ({
@@ -62,11 +45,12 @@ const getBackgroundColor = ({
   theme: InternalTheme;
   isMode: (mode: CardMode) => boolean;
 }) => {
-  if (theme.isV3) {
-    if (isMode('contained')) {
-      return theme.colors.surfaceVariant;
-    }
-    return theme.colors.surface;
+  const { colors } = theme;
+  if (isMode('contained')) {
+    return colors.surfaceVariant;
+  }
+  if (isMode('outlined')) {
+    return colors.surface;
   }
   return undefined;
 };

@@ -1,14 +1,16 @@
-import * as React from 'react';
 import { StyleSheet, View } from 'react-native';
+import type { ColorValue } from 'react-native';
 
 import { useInternalTheme } from '../../core/theming';
-import Icon, { IconSource } from '../Icon';
+import type { ThemeProp } from '../../theme/types';
+import Icon from '../Icon';
+import type { IconSource } from '../Icon';
 
 export type Props = {
   /**
    *  Custom color for action icon.
    */
-  color?: string;
+  color?: ColorValue;
   /**
    * Name of the icon to show.
    */
@@ -17,21 +19,25 @@ export type Props = {
    * Optional icon size.
    */
   size?: number;
+  /**
+   * @optional
+   */
+  theme?: ThemeProp;
+  /**
+   * testID to be used on tests.
+   */
+  testID?: string;
 };
 
 /**
  * @supported Available in v5.x with theme version 3
  * A component to show an icon in a Dialog.
  *
- *  <div class="screenshots">
- *   <img class="small" src="screenshots/dialog-icon.png" />
- * </div>
- *
  * ## Usage
  * ```js
  * import * as React from 'react';
  * import { StyleSheet } from 'react-native';
- * import { Paragraph, Dialog, Portal } from 'react-native-paper';
+ * import { Dialog, Text } from 'react-native-paper';
  *
  * const MyComponent = () => {
  *   const [visible, setVisible] = React.useState(false);
@@ -39,15 +45,13 @@ export type Props = {
  *   const hideDialog = () => setVisible(false);
  *
  *   return (
- *     <Portal>
- *       <Dialog visible={visible} onDismiss={hideDialog}>
- *         <Dialog.Icon icon="alert" />
- *         <Dialog.Title style={styles.title}>This is a title</Dialog.Title>
- *         <Dialog.Content>
- *           <Paragraph>This is simple dialog</Paragraph>
- *         </Dialog.Content>
- *       </Dialog>
- *     </Portal>
+ *     <Dialog visible={visible} onDismiss={hideDialog}>
+ *       <Dialog.Icon icon="alert" />
+ *       <Dialog.Title style={styles.title}>This is a title</Dialog.Title>
+ *       <Dialog.Content>
+ *         <Text variant="bodyMedium">This is simple dialog</Text>
+ *       </Dialog.Content>
+ *     </Dialog>
  *   );
  * };
  *
@@ -60,18 +64,21 @@ export type Props = {
  * export default MyComponent;
  * ```
  */
-const DialogIcon = ({ size = 24, color, icon }: Props) => {
-  const theme = useInternalTheme();
-
-  if (!theme.isV3) {
-    return null;
-  }
+const DialogIcon = ({
+  size = 24,
+  color,
+  icon,
+  theme: themeOverrides,
+  testID,
+}: Props) => {
+  const theme = useInternalTheme(themeOverrides);
+  const { colors } = theme;
 
   //@ts-ignore
-  const iconColor = color || theme.colors.secondary;
+  const iconColor = color || colors.secondary;
 
   return (
-    <View style={styles.wrapper}>
+    <View style={styles.wrapper} testID={testID}>
       <Icon source={icon} color={iconColor} size={size} />
     </View>
   );
@@ -83,7 +90,8 @@ const styles = StyleSheet.create({
   wrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 24,
+    marginBottom: 16,
+    paddingTop: 0,
   },
 });
 

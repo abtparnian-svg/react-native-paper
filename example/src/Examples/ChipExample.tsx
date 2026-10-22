@@ -2,15 +2,16 @@ import * as React from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 
 import color from 'color';
-import { Chip, List, MD2Colors, MD3Colors, Snackbar } from 'react-native-paper';
+import { Chip, List, Palette, Snackbar, Text } from 'react-native-paper';
 
-import { useExampleTheme } from '..';
 import ScreenWrapper from '../ScreenWrapper';
 
 const ChipExample = () => {
-  const [visible, setVisible] = React.useState<boolean>(false);
-  const { isV3 } = useExampleTheme();
-  const customColor = isV3 ? MD3Colors.secondary20 : MD2Colors.purple900;
+  const [snackbarProperties, setSnackbarProperties] = React.useState({
+    visible: false,
+    text: '',
+  });
+  const customColor = Palette.error50;
 
   return (
     <>
@@ -20,27 +21,28 @@ const ChipExample = () => {
             <Chip selected onPress={() => {}} style={styles.chip}>
               Simple
             </Chip>
-            {isV3 && (
-              <>
-                <Chip
-                  selected
-                  showSelectedOverlay
-                  onPress={() => {}}
-                  style={styles.chip}
-                >
-                  With selected overlay
-                </Chip>
-                <Chip elevated onPress={() => {}} style={styles.chip}>
-                  Elevated
-                </Chip>
-                <Chip compact style={styles.chip} onPress={() => {}}>
-                  Compact chip
-                </Chip>
-              </>
-            )}
+            <Chip
+              selected
+              showSelectedOverlay
+              onPress={() => {}}
+              style={styles.chip}
+            >
+              With selected overlay
+            </Chip>
+            <Chip elevated onPress={() => {}} style={styles.chip}>
+              Elevated
+            </Chip>
+            <Chip compact style={styles.chip} onPress={() => {}}>
+              Compact chip
+            </Chip>
             <Chip
               onPress={() => {}}
-              onClose={() => {}}
+              onClose={() =>
+                setSnackbarProperties({
+                  visible: true,
+                  text: 'Close button pressed',
+                })
+              }
               style={styles.chip}
               closeIconAccessibilityLabel="Close icon accessibility label"
             >
@@ -49,7 +51,12 @@ const ChipExample = () => {
             <Chip
               icon="heart"
               onPress={() => {}}
-              onClose={() => {}}
+              onClose={() =>
+                setSnackbarProperties({
+                  visible: true,
+                  text: 'Heart icon close button pressed',
+                })
+              }
               style={styles.chip}
             >
               Icon
@@ -62,7 +69,12 @@ const ChipExample = () => {
                 />
               }
               onPress={() => {}}
-              onClose={() => {}}
+              onClose={() =>
+                setSnackbarProperties({
+                  visible: true,
+                  text: 'Avatar close button pressed',
+                })
+              }
               style={styles.chip}
             >
               Avatar
@@ -80,7 +92,17 @@ const ChipExample = () => {
             >
               Avatar (selected)
             </Chip>
-            <Chip disabled icon="heart" onClose={() => {}} style={styles.chip}>
+            <Chip
+              disabled
+              icon="heart"
+              onClose={() =>
+                setSnackbarProperties({
+                  visible: true,
+                  text: 'Disabled heart icon close button pressed',
+                })
+              }
+              style={styles.chip}
+            >
               Icon (disabled)
             </Chip>
             <Chip
@@ -102,39 +124,40 @@ const ChipExample = () => {
             <Chip mode="outlined" onPress={() => {}} style={styles.chip}>
               Simple
             </Chip>
-            {isV3 && (
-              <>
-                <Chip
-                  mode="outlined"
-                  selected
-                  showSelectedOverlay
-                  onPress={() => {}}
-                  style={styles.chip}
-                >
-                  With selected overlay
-                </Chip>
-                <Chip
-                  mode="outlined"
-                  elevated
-                  onPress={() => {}}
-                  style={styles.chip}
-                >
-                  Elevated
-                </Chip>
-                <Chip
-                  mode="outlined"
-                  compact
-                  onPress={() => {}}
-                  style={styles.chip}
-                >
-                  Compact chip
-                </Chip>
-              </>
-            )}
+            <Chip
+              mode="outlined"
+              selected
+              showSelectedOverlay
+              onPress={() => {}}
+              style={styles.chip}
+            >
+              With selected overlay
+            </Chip>
+            <Chip
+              mode="outlined"
+              elevated
+              onPress={() => {}}
+              style={styles.chip}
+            >
+              Elevated
+            </Chip>
+            <Chip
+              mode="outlined"
+              compact
+              onPress={() => {}}
+              style={styles.chip}
+            >
+              Compact chip
+            </Chip>
             <Chip
               mode="outlined"
               onPress={() => {}}
-              onClose={() => {}}
+              onClose={() =>
+                setSnackbarProperties({
+                  visible: true,
+                  text: 'Close button pressed',
+                })
+              }
               style={styles.chip}
             >
               Close button
@@ -143,7 +166,12 @@ const ChipExample = () => {
               mode="outlined"
               icon="heart"
               onPress={() => {}}
-              onClose={() => {}}
+              onClose={() =>
+                setSnackbarProperties({
+                  visible: true,
+                  text: 'Heart icon close button pressed',
+                })
+              }
               style={styles.chip}
             >
               Icon
@@ -179,7 +207,12 @@ const ChipExample = () => {
               disabled
               mode="outlined"
               icon="heart"
-              onClose={() => {}}
+              onClose={() =>
+                setSnackbarProperties({
+                  visible: true,
+                  text: 'Disabled close button pressed',
+                })
+              }
               style={styles.chip}
             >
               Icon (disabled)
@@ -201,42 +234,42 @@ const ChipExample = () => {
         </List.Section>
         <List.Section title="Custom chip">
           <View style={styles.row}>
-            {isV3 && (
-              <>
-                <Chip
-                  mode="outlined"
-                  onPress={() => {}}
-                  compact
-                  avatar={
-                    <Image
-                      source={require('../../assets/images/avatar.png')}
-                      accessibilityIgnoresInvertColors
-                    />
-                  }
-                  style={[styles.chip, styles.customBorderRadius]}
-                >
-                  Compact with custom border radius
-                </Chip>
-                <Chip
-                  mode="flat"
-                  onPress={() => {}}
-                  compact
-                  avatar={
-                    <Image
-                      source={require('../../assets/images/avatar.png')}
-                      accessibilityIgnoresInvertColors
-                    />
-                  }
-                  style={[styles.chip, styles.customBorderRadius]}
-                >
-                  Compact with custom border radius
-                </Chip>
-              </>
-            )}
             <Chip
               mode="outlined"
               onPress={() => {}}
-              onLongPress={() => setVisible(true)}
+              compact
+              avatar={
+                <Image
+                  source={require('../../assets/images/avatar.png')}
+                  accessibilityIgnoresInvertColors
+                />
+              }
+              style={styles.chip}
+              theme={{ shapes: { corner: { small: 16 } } }}
+            >
+              Compact with custom border radius
+            </Chip>
+            <Chip
+              mode="flat"
+              onPress={() => {}}
+              compact
+              avatar={
+                <Image
+                  source={require('../../assets/images/avatar.png')}
+                  accessibilityIgnoresInvertColors
+                />
+              }
+              style={styles.chip}
+              theme={{ shapes: { corner: { small: 16 } } }}
+            >
+              Compact with custom border radius
+            </Chip>
+            <Chip
+              mode="outlined"
+              onPress={() => {}}
+              onLongPress={() =>
+                setSnackbarProperties({ visible: true, text: '' })
+              }
               style={styles.chip}
             >
               With onLongPress
@@ -244,12 +277,15 @@ const ChipExample = () => {
             <Chip
               selected
               onPress={() => {}}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: color(customColor).alpha(0.2).rgb().string(),
+              style={styles.chip}
+              theme={{
+                colors: {
+                  secondaryContainer: color(customColor)
+                    .alpha(0.2)
+                    .rgb()
+                    .string(),
                 },
-              ]}
+              }}
               selectedColor={customColor}
             >
               Flat selected chip with custom color
@@ -265,12 +301,12 @@ const ChipExample = () => {
               selected
               mode="outlined"
               onPress={() => {}}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: color(customColor).alpha(0.2).rgb().string(),
+              style={styles.chip}
+              theme={{
+                colors: {
+                  surface: color(customColor).alpha(0.2).rgb().string(),
                 },
-              ]}
+              }}
               selectedColor={customColor}
             >
               Outlined selected chip with custom color
@@ -292,7 +328,12 @@ const ChipExample = () => {
             </Chip>
             <Chip
               onPress={() => {}}
-              onClose={() => {}}
+              onClose={() =>
+                setSnackbarProperties({
+                  visible: true,
+                  text: 'Close button pressed',
+                })
+              }
               style={styles.bigTextFlex}
               textStyle={styles.bigTextStyle}
               ellipsizeMode="middle"
@@ -303,12 +344,24 @@ const ChipExample = () => {
             </Chip>
             <Chip
               onPress={() => {}}
-              onClose={() => {}}
+              onClose={() =>
+                setSnackbarProperties({
+                  visible: true,
+                  text: 'Custom icon close button pressed',
+                })
+              }
               closeIcon="arrow-down"
               style={styles.chip}
               closeIconAccessibilityLabel="Custom Close icon accessibility label"
             >
               With custom close icon
+            </Chip>
+            <Chip
+              onPress={() => {}}
+              style={styles.chip}
+              textStyle={styles.tiny}
+            >
+              <Text variant="titleLarge">With custom text</Text>
             </Chip>
           </View>
           <Chip mode="outlined" onPress={() => {}} style={styles.fullWidthChip}>
@@ -317,11 +370,11 @@ const ChipExample = () => {
         </List.Section>
       </ScreenWrapper>
       <Snackbar
-        visible={visible}
-        onDismiss={() => setVisible(false)}
+        visible={snackbarProperties.visible}
+        onDismiss={() => setSnackbarProperties({ visible: false, text: '' })}
         duration={Snackbar.DURATION_SHORT}
       >
-        onLongPress activated!
+        {snackbarProperties.text}
       </Snackbar>
     </>
   );
@@ -354,9 +407,6 @@ const styles = StyleSheet.create({
   fullWidthChip: {
     marginVertical: 4,
     marginHorizontal: 12,
-  },
-  customBorderRadius: {
-    borderRadius: 16,
   },
 });
 

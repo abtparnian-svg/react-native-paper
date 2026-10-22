@@ -1,16 +1,16 @@
 import * as React from 'react';
+// eslint-disable-next-line no-restricted-imports -- TODO: remove after ProgressBar migrates to Reanimated.
 import { View, StyleSheet, Animated } from 'react-native';
 
 import {
   Button,
+  Palette,
   ProgressBar,
-  Paragraph,
-  MD2Colors,
-  MD3Colors,
-  ProgressBarProps,
+  Text,
+  useTheme,
 } from 'react-native-paper';
+import type { ProgressBarProps } from 'react-native-paper';
 
-import { useExampleTheme } from '..';
 import ScreenWrapper from '../ScreenWrapper';
 
 class ClassProgressBar extends React.Component {
@@ -28,8 +28,7 @@ const AnimatedProgressBar = Animated.createAnimatedComponent(ClassProgressBar);
 const ProgressBarExample = () => {
   const [visible, setVisible] = React.useState<boolean>(true);
   const [progress, setProgress] = React.useState<number>(0.3);
-  const theme = useExampleTheme();
-  const { isV3 } = theme;
+  const theme = useTheme();
   const { current: progressBarValue } = React.useRef(new Animated.Value(0));
 
   const runCustomAnimation = () => {
@@ -50,38 +49,40 @@ const ProgressBarExample = () => {
       <Button onPress={runCustomAnimation}>Toggle animation</Button>
 
       <View style={styles.row}>
-        <Paragraph>Default ProgressBar </Paragraph>
+        <Text variant="bodyMedium">Default ProgressBar</Text>
         <ProgressBar progress={progress} visible={visible} />
       </View>
 
       <View style={styles.row}>
-        <Paragraph>Indeterminate ProgressBar</Paragraph>
+        <Text variant="bodyMedium">Indeterminate ProgressBar</Text>
         <ProgressBar indeterminate visible={visible} />
       </View>
 
       <View style={styles.row}>
-        <Paragraph>ProgressBar with custom color</Paragraph>
+        <Text variant="bodyMedium">ProgressBar with custom color</Text>
         <ProgressBar
           progress={progress}
           visible={visible}
-          color={isV3 ? MD3Colors.error50 : MD2Colors.red800}
+          color={Palette.error50}
         />
       </View>
 
       <View style={styles.row}>
-        <Paragraph>ProgressBar with custom background color</Paragraph>
+        <Text variant="bodyMedium">
+          ProgressBar with custom background color
+        </Text>
         <ProgressBar
           progress={progress}
           visible={visible}
-          color={MD2Colors.red800}
+          color={Palette.error40}
           style={{
-            backgroundColor: isV3 ? MD3Colors.secondary50 : MD2Colors.teal500,
+            backgroundColor: Palette.secondary50,
           }}
         />
       </View>
 
       <View style={styles.row}>
-        <Paragraph>ProgressBar with custom height</Paragraph>
+        <Text variant="bodyMedium">ProgressBar with custom height</Text>
         <ProgressBar
           progress={progress}
           visible={visible}
@@ -90,12 +91,23 @@ const ProgressBarExample = () => {
       </View>
 
       <View style={styles.row}>
-        <Paragraph>ProgressBar with animated value</Paragraph>
+        <Text variant="bodyMedium">ProgressBar with animated value</Text>
         <AnimatedProgressBar
+          visible={visible}
           style={styles.progressBar}
           animatedValue={progressBarValue}
-          color={MD2Colors.green200}
           theme={theme}
+        />
+      </View>
+
+      <View style={[styles.row, styles.fullRow]}>
+        <Text variant="bodyMedium">
+          ProgressBar with custom percentage height
+        </Text>
+        <ProgressBar
+          style={styles.customPercentageHeight}
+          indeterminate
+          visible={visible}
         />
       </View>
     </ScreenWrapper>
@@ -111,8 +123,15 @@ const styles = StyleSheet.create({
   row: {
     marginVertical: 10,
   },
+  fullRow: {
+    height: '100%',
+    width: '100%',
+  },
   customHeight: {
     height: 20,
+  },
+  customPercentageHeight: {
+    height: '50%',
   },
   progressBar: {
     height: 15,

@@ -1,25 +1,31 @@
 import * as React from 'react';
-import {
-  Animated,
+import { StyleSheet, View } from 'react-native';
+import type {
+  ColorValue,
+  GestureResponderEvent,
+  PressableAndroidRippleConfig,
+  Role,
   StyleProp,
-  StyleSheet,
   TextStyle,
-  View,
+  ViewProps,
   ViewStyle,
 } from 'react-native';
 
-import color from 'color';
-
-import { withInternalTheme } from '../../core/theming';
-import type { InternalTheme } from '../../types';
+import { getButtonColors, getButtonTouchableRippleStyle } from './utils';
+import type { ButtonMode } from './utils';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
+import hasTouchHandler from '../../utils/hasTouchHandler';
 import ActivityIndicator from '../ActivityIndicator';
-import Icon, { IconSource } from '../Icon';
+import Icon from '../Icon';
+import type { IconSource } from '../Icon';
 import Surface from '../Surface';
+import type { SurfaceStyle } from '../Surface';
 import TouchableRipple from '../TouchableRipple/TouchableRipple';
+import type { Props as TouchableRippleProps } from '../TouchableRipple/TouchableRipple';
 import Text from '../Typography/Text';
-import { ButtonMode, getButtonColors } from './utils';
 
-export type Props = React.ComponentProps<typeof Surface> & {
+export type Props = Omit<ViewProps, 'style'> & {
   /**
    * Mode of the button. You can change the mode to adjust the styling to give it desired emphasis.
    * - `text` - flat button without background or outline, used for the lowest priority actions, especially when presenting multiple options.
@@ -40,20 +46,13 @@ export type Props = React.ComponentProps<typeof Surface> & {
    */
   compact?: boolean;
   /**
-   * @deprecated Deprecated in v5.x - use `buttonColor` or `textColor` instead.
-   * Custom text color for flat button, or background color for contained button.
-   */
-  color?: string;
-  /**
-   * @supported Available in v5.x
    * Custom button's background color.
    */
-  buttonColor?: string;
+  buttonColor?: ColorValue;
   /**
-   * @supported Available in v5.x
    * Custom button's text color.
    */
-  textColor?: string;
+  textColor?: ColorValue;
   /**
    * Whether to show a loading indicator.
    */
@@ -75,37 +74,56 @@ export type Props = React.ComponentProps<typeof Surface> & {
    */
   uppercase?: boolean;
   /**
+   * Type of background drawable to display the feedback (Android).
+   * https://reactnative.dev/docs/pressable#rippleconfig
+   */
+  background?: PressableAndroidRippleConfig;
+  /**
    * Accessibility label for the button. This is read by the screen reader when the user taps the button.
    */
-  accessibilityLabel?: string;
+  'aria-label'?: string;
   /**
    * Accessibility hint for the button. This is read by the screen reader when the user taps the button.
    */
   accessibilityHint?: string;
   /**
+   * Accessibility role for the button. The "button" role is set by default.
+   */
+  role?: Role;
+  /**
    * Function to execute on press.
    */
-  onPress?: () => void;
+  onPress?: (e: GestureResponderEvent) => void;
   /**
-   * @supported Available in v5.x
    * Function to execute as soon as the touchable element is pressed and invoked even before onPress.
    */
-  onPressIn?: () => void;
+  onPressIn?: (e: GestureResponderEvent) => void;
   /**
-   * @supported Available in v5.x
    * Function to execute as soon as the touch is released even before onPress.
    */
-  onPressOut?: () => void;
+  onPressOut?: (e: GestureResponderEvent) => void;
   /**
    * Function to execute on long press.
    */
-  onLongPress?: () => void;
+  onLongPress?: (e: GestureResponderEvent) => void;
+  /**
+   * The number of milliseconds a user must touch the element before executing `onLongPress`.
+   */
+  delayLongPress?: number;
   /**
    * Style of button's inner content.
-   * Use this prop to apply custom height and width and to set the icon on the right with `flexDirection: 'row-reverse'`.
+   * Use this prop to apply custom height and width, to set a custom padding or to set the icon on the right with `flexDirection: 'row-reverse'`.
    */
   contentStyle?: StyleProp<ViewStyle>;
-  style?: StyleProp<ViewStyle>;
+  /**
+   * Specifies the largest possible scale a text font can reach.
+   */
+  maxFontSizeMultiplier?: number;
+  /**
+   * Sets additional distance outside of element in which a press can be detected.
+   */
+  hitSlop?: TouchableRippleProps['hitSlop'];
+  style?: StyleProp<SurfaceStyle>;
   /**
    * Style for the button text.
    */
@@ -113,7 +131,12 @@ export type Props = React.ComponentProps<typeof Surface> & {
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
+  /**
+   * Reference for the touchable
+   */
+  touchableRef?: React.RefObject<View>;
+  ref?: React.Ref<View>;
   /**
    * testID to be used on tests.
    */
@@ -122,29 +145,6 @@ export type Props = React.ComponentProps<typeof Surface> & {
 
 /**
  * A button is component that the user can press to trigger an action.
- *
- * <div class="screenshots">
- *   <figure>
- *     <img src="screenshots/button-1.png" />
- *     <figcaption>Text button</figcaption>
- *   </figure>
- *   <figure>
- *     <img src="screenshots/button-2.png" />
- *     <figcaption>Outlined button</figcaption>
- *   </figure>
- *   <figure>
- *     <img src="screenshots/button-3.png" />
- *     <figcaption>Contained button</figcaption>
- *   </figure>
- *   <figure>
- *     <img src="screenshots/button-4.png" />
- *     <figcaption>Elevated button</figcaption>
- *   </figure>
- *   <figure>
- *     <img src="screenshots/button-5.png" />
- *     <figcaption>Contained-tonal button</figcaption>
- *   </figure>
- * </div>
  *
  * ## Usage
  * ```js
@@ -170,98 +170,103 @@ const Button = ({
   buttonColor: customButtonColor,
   textColor: customTextColor,
   children,
-  accessibilityLabel,
+  'aria-label': ariaLabel,
   accessibilityHint,
+  role = 'button',
+  hitSlop,
   onPress,
   onPressIn,
   onPressOut,
   onLongPress,
+  delayLongPress,
   style,
-  theme,
-  uppercase = !theme.isV3,
+  theme: themeOverrides,
+  uppercase: uppercaseProp,
   contentStyle,
   labelStyle,
   testID,
   accessible,
+  background,
+  maxFontSizeMultiplier,
+  touchableRef,
+  ref,
   ...rest
 }: Props) => {
+  const theme = useInternalTheme(themeOverrides);
+
   const isMode = React.useCallback(
     (modeToCompare: ButtonMode) => {
       return mode === modeToCompare;
     },
     [mode]
   );
-  const { roundness, isV3, animation } = theme;
 
-  const isElevationEntitled =
-    !disabled && (isV3 ? isMode('elevated') : isMode('contained'));
-  const initialElevation = isV3 ? 1 : 2;
-  const activeElevation = isV3 ? 2 : 8;
+  const uppercase = uppercaseProp ?? false;
 
-  const { current: elevation } = React.useRef<Animated.Value>(
-    new Animated.Value(isElevationEntitled ? initialElevation : 0)
-  );
+  const hasPassedTouchHandler = hasTouchHandler({
+    onPress,
+    onPressIn,
+    onPressOut,
+    onLongPress,
+  });
 
-  React.useEffect(() => {
-    elevation.setValue(isElevationEntitled ? initialElevation : 0);
-  }, [isElevationEntitled, elevation, initialElevation]);
+  const isElevationEntitled = !disabled && isMode('elevated');
+  const initialElevation = 1;
+  const activeElevation = 2;
 
-  const handlePressIn = () => {
-    onPressIn?.();
-    if (isV3 ? isMode('elevated') : isMode('contained')) {
-      const { scale } = animation;
-      Animated.timing(elevation, {
-        toValue: activeElevation,
-        duration: 200 * scale,
-        useNativeDriver: true,
-      }).start();
+  const [pressed, setPressed] = React.useState(false);
+
+  const elevation = isElevationEntitled
+    ? pressed
+      ? activeElevation
+      : initialElevation
+    : 0;
+
+  const handlePressIn = (e: GestureResponderEvent) => {
+    onPressIn?.(e);
+
+    if (isElevationEntitled) {
+      setPressed(true);
     }
   };
 
-  const handlePressOut = () => {
-    onPressOut?.();
-    if (isV3 ? isMode('elevated') : isMode('contained')) {
-      const { scale } = animation;
-      Animated.timing(elevation, {
-        toValue: initialElevation,
-        duration: 150 * scale,
-        useNativeDriver: true,
-      }).start();
+  const handlePressOut = (e: GestureResponderEvent) => {
+    onPressOut?.(e);
+
+    if (isElevationEntitled) {
+      setPressed(false);
     }
   };
 
-  const borderRadius = (isV3 ? 5 : 1) * roundness;
-  const iconSize = isV3 ? 18 : 16;
+  const elevationTransitionDuration =
+    theme.motion.duration[pressed ? 'short4' : 'short3'] *
+    theme.animation.scale;
 
-  const { backgroundColor, borderColor, textColor, borderWidth } =
-    getButtonColors({
-      customButtonColor,
-      customTextColor,
-      theme,
-      mode,
-      disabled,
-      dark,
-    });
+  const borderRadius = theme.shapes.corner.largeIncreased;
+  const iconSize = 18;
 
-  const rippleColor = color(textColor).alpha(0.12).rgb().string();
-
-  const buttonStyle = {
+  const {
     backgroundColor,
     borderColor,
+    textColor,
+    textOpacity,
     borderWidth,
-    borderRadius,
-  };
-  const touchableStyle = {
-    borderRadius: style
-      ? ((StyleSheet.flatten(style) || {}) as ViewStyle).borderRadius ??
-        borderRadius
-      : borderRadius,
-  };
+    backgroundOpacity,
+  } = getButtonColors({
+    customButtonColor,
+    customTextColor,
+    theme,
+    mode,
+    disabled,
+    dark,
+  });
+
+  const touchableStyle = { borderRadius };
 
   const { color: customLabelColor, fontSize: customLabelSize } =
     StyleSheet.flatten(labelStyle) || {};
 
-  const font = isV3 ? theme.fonts.labelLarge : theme.fonts.medium;
+  const font = theme.fonts.labelLarge;
 
   const textStyle = {
     color: textColor,
@@ -272,46 +277,69 @@ const Button = ({
     StyleSheet.flatten(contentStyle)?.flexDirection === 'row-reverse'
       ? [
           styles.iconReverse,
-          isV3 && styles.md3IconReverse,
-          isV3 && isMode('text') && styles.md3IconReverseTextMode,
+          styles[`md3IconReverse${compact ? 'Compact' : ''}`],
+          isMode('text') &&
+            styles[`md3IconReverseTextMode${compact ? 'Compact' : ''}`],
         ]
       : [
           styles.icon,
-          isV3 && styles.md3Icon,
-          isV3 && isMode('text') && styles.md3IconTextMode,
+          styles[`md3Icon${compact ? 'Compact' : ''}`],
+          isMode('text') &&
+            styles[`md3IconTextMode${compact ? 'Compact' : ''}`],
         ];
 
   return (
     <Surface
       {...rest}
-      style={
-        [
-          styles.button,
-          compact && styles.compact,
-          buttonStyle,
-          style,
-          !isV3 && { elevation },
-        ] as ViewStyle
-      }
-      {...(isV3 && { elevation: elevation })}
+      ref={ref}
+      backgroundColor={backgroundOpacity < 1 ? 'transparent' : backgroundColor}
+      {...touchableStyle}
+      style={[
+        styles.button,
+        compact && styles.compact,
+        {
+          borderColor,
+          borderWidth,
+        },
+        style,
+      ]}
+      elevation={elevation}
+      transitionDuration={elevationTransitionDuration}
     >
+      {backgroundOpacity < 1 && (
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor,
+              opacity: backgroundOpacity,
+              borderRadius: touchableStyle.borderRadius,
+            },
+          ]}
+        />
+      )}
       <TouchableRipple
         borderless
+        background={background}
         onPress={onPress}
         onLongPress={onLongPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        accessibilityLabel={accessibilityLabel}
+        onPressIn={hasPassedTouchHandler ? handlePressIn : undefined}
+        onPressOut={hasPassedTouchHandler ? handlePressOut : undefined}
+        delayLongPress={delayLongPress}
+        aria-label={ariaLabel}
         accessibilityHint={accessibilityHint}
-        accessibilityRole="button"
-        accessibilityState={{ disabled }}
+        role={role}
+        aria-disabled={disabled}
         accessible={accessible}
+        hitSlop={hitSlop}
         disabled={disabled}
-        rippleColor={rippleColor}
-        style={touchableStyle}
+        style={getButtonTouchableRippleStyle(touchableStyle, borderWidth)}
         testID={testID}
+        theme={theme}
+        ref={touchableRef}
       >
-        <View style={[styles.content, contentStyle]}>
+        <View style={[styles.content, { opacity: textOpacity }, contentStyle]}>
           {icon && loading !== true ? (
             <View style={iconStyle}>
               <Icon
@@ -342,18 +370,17 @@ const Button = ({
             numberOfLines={1}
             style={[
               styles.label,
-              !isV3 && styles.md2Label,
-              isV3 &&
-                (isMode('text')
-                  ? icon || loading
-                    ? styles.md3LabelTextAddons
-                    : styles.md3LabelText
-                  : styles.md3Label),
+              isMode('text')
+                ? icon || loading
+                  ? styles.md3LabelTextAddons
+                  : styles.md3LabelText
+                : styles.md3Label,
               compact && styles.compactLabel,
               uppercase && styles.uppercaseLabel,
               textStyle,
               labelStyle,
             ]}
+            maxFontSizeMultiplier={maxFontSizeMultiplier}
           >
             {children}
           </Text>
@@ -384,29 +411,44 @@ const styles = StyleSheet.create({
     marginRight: 12,
     marginLeft: -4,
   },
+  /* eslint-disable react-native/no-unused-styles */
   md3Icon: {
     marginLeft: 16,
     marginRight: -16,
+  },
+  md3IconCompact: {
+    marginLeft: 8,
+    marginRight: 0,
   },
   md3IconReverse: {
     marginLeft: -16,
     marginRight: 16,
   },
+  md3IconReverseCompact: {
+    marginLeft: 0,
+    marginRight: 8,
+  },
   md3IconTextMode: {
     marginLeft: 12,
     marginRight: -8,
+  },
+  md3IconTextModeCompact: {
+    marginLeft: 6,
+    marginRight: 0,
   },
   md3IconReverseTextMode: {
     marginLeft: -8,
     marginRight: 12,
   },
+  md3IconReverseTextModeCompact: {
+    marginLeft: 0,
+    marginRight: 6,
+  },
+  /* eslint-enable react-native/no-unused-styles */
   label: {
     textAlign: 'center',
     marginVertical: 9,
     marginHorizontal: 16,
-  },
-  md2Label: {
-    letterSpacing: 1,
   },
   compactLabel: {
     marginHorizontal: 8,
@@ -426,4 +468,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default withInternalTheme(Button);
+export default Button;

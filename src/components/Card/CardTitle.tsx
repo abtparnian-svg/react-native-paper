@@ -1,19 +1,12 @@
 import * as React from 'react';
-import {
-  StyleProp,
-  StyleSheet,
-  TextStyle,
-  View,
-  ViewStyle,
-} from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import type { StyleProp, TextStyle, ViewProps, ViewStyle } from 'react-native';
 
-import { withInternalTheme } from '../../core/theming';
-import type { InternalTheme, MD3TypescaleKey } from '../../types';
+import { useInternalTheme } from '../../core/theming';
+import type { TypescaleKey, ThemeProp } from '../../theme/types';
 import Text from '../Typography/Text';
-import Caption from '../Typography/v2/Caption';
-import Title from '../Typography/v2/Title';
 
-export type Props = React.ComponentPropsWithRef<typeof View> & {
+export type Props = ViewProps & {
   /**
    * Text for the title. Note that this will only accept a string or `<Text>`-based node.
    */
@@ -42,7 +35,7 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
    *
    *  Body: `bodyLarge`, `bodyMedium`, `bodySmall`
    */
-  titleVariant?: keyof typeof MD3TypescaleKey;
+  titleVariant?: TypescaleKey;
   /**
    * Text for the subtitle. Note that this will only accept a string or `<Text>`-based node.
    */
@@ -71,7 +64,7 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
    *
    *  Body: `bodyLarge`, `bodyMedium`, `bodySmall`
    */
-  subtitleVariant?: keyof typeof MD3TypescaleKey;
+  subtitleVariant?: TypescaleKey;
   /**
    * Callback which returns a React element to display on the left side.
    */
@@ -89,28 +82,28 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
    */
   rightStyle?: StyleProp<ViewStyle>;
   /**
-   * @internal
+   * Specifies the largest possible scale a title font can reach.
    */
-  index?: number;
+  titleMaxFontSizeMultiplier?: number;
   /**
-   * @internal
+   * Specifies the largest possible scale a subtitle font can reach.
    */
-  total?: number;
+  subtitleMaxFontSizeMultiplier?: number;
   style?: StyleProp<ViewStyle>;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
+  /**
+   * testID to be used on tests.
+   */
+  testID?: string;
 };
 
 const LEFT_SIZE = 40;
 
 /**
  * A component to show a title, subtitle and an avatar inside a Card.
- *
- * <div class="screenshots">
- *   <img class="small" src="screenshots/card-title-1.png" />
- * </div>
  *
  * ## Usage
  * ```js
@@ -122,7 +115,7 @@ const LEFT_SIZE = 40;
  *     title="Card Title"
  *     subtitle="Card Subtitle"
  *     left={(props) => <Avatar.Icon {...props} icon="folder" />}
- *     right={(props) => <IconButton {...props} icon="more-vert" onPress={() => {}} />}
+ *     right={(props) => <IconButton {...props} icon="dots-vertical" onPress={() => {}} />}
  *   />
  * );
  *
@@ -134,34 +127,24 @@ const CardTitle = ({
   titleStyle,
   titleNumberOfLines = 1,
   titleVariant = 'bodyLarge',
+  titleMaxFontSizeMultiplier,
   subtitle,
   subtitleStyle,
   subtitleNumberOfLines = 1,
   subtitleVariant = 'bodyMedium',
+  subtitleMaxFontSizeMultiplier,
   left,
   leftStyle,
   right,
   rightStyle,
   style,
-  theme,
+  theme: themeOverrides,
+  testID,
 }: Props) => {
-  const titleComponent = (props: any) =>
-    theme.isV3 ? <Text {...props} /> : <Title {...props} />;
+  useInternalTheme(themeOverrides);
 
-  const subtitleComponent = (props: any) =>
-    theme.isV3 ? <Text {...props} /> : <Caption {...props} />;
-
-  const TextComponent = React.memo(({ component, ...rest }: any) =>
-    React.createElement(component, rest)
-  );
   return (
-    <View
-      style={[
-        styles.container,
-        { minHeight: subtitle || left || right ? 72 : 50 },
-        style,
-      ]}
-    >
+    <View style={[styles.container, style]} testID={testID}>
       {left ? (
         <View style={[styles.left, leftStyle]}>
           {left({
@@ -172,28 +155,24 @@ const CardTitle = ({
 
       <View style={[styles.titles]}>
         {title && (
-          <TextComponent
-            component={titleComponent}
-            style={[
-              styles.title,
-              { marginBottom: subtitle ? 0 : 2 },
-              titleStyle,
-            ]}
+          <Text
+            style={titleStyle}
             numberOfLines={titleNumberOfLines}
             variant={titleVariant}
+            maxFontSizeMultiplier={titleMaxFontSizeMultiplier}
           >
             {title}
-          </TextComponent>
+          </Text>
         )}
         {subtitle && (
-          <TextComponent
-            component={subtitleComponent}
-            style={[styles.subtitle, subtitleStyle]}
+          <Text
+            style={subtitleStyle}
             numberOfLines={subtitleNumberOfLines}
             variant={subtitleVariant}
+            maxFontSizeMultiplier={subtitleMaxFontSizeMultiplier}
           >
             {subtitle}
-          </TextComponent>
+          </Text>
         )}
       </View>
       <View style={rightStyle}>{right ? right({ size: 24 }) : null}</View>
@@ -208,35 +187,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingLeft: 16,
+    gap: 16,
   },
-
   left: {
     justifyContent: 'center',
-    marginRight: 16,
     height: LEFT_SIZE,
     width: LEFT_SIZE,
   },
-
   titles: {
     flex: 1,
     flexDirection: 'column',
     justifyContent: 'center',
   },
-
-  title: {
-    minHeight: 30,
-    paddingRight: 16,
-  },
-
-  subtitle: {
-    minHeight: 20,
-    marginVertical: 0,
-    paddingRight: 16,
-  },
 });
 
-export default withInternalTheme(CardTitle);
+export default CardTitle;
 
 // @component-docs ignore-next-line
 export { CardTitle };

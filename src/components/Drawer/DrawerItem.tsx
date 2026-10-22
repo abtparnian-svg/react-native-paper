@@ -1,15 +1,23 @@
 import * as React from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import type {
+  ColorValue,
+  GestureResponderEvent,
+  PressableAndroidRippleConfig,
+  StyleProp,
+  ViewProps,
+  ViewStyle,
+} from 'react-native';
 
-import color from 'color';
-
-import { withInternalTheme } from '../../core/theming';
-import type { InternalTheme } from '../../types';
-import Icon, { IconSource } from '../Icon';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
+import Icon from '../Icon';
+import type { IconSource } from '../Icon';
 import TouchableRipple from '../TouchableRipple/TouchableRipple';
+import type { Props as TouchableRippleProps } from '../TouchableRipple/TouchableRipple';
 import Text from '../Typography/Text';
 
-export type Props = React.ComponentPropsWithRef<typeof View> & {
+export type Props = ViewProps & {
   /**
    * The label text of the item.
    */
@@ -23,32 +31,47 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
    */
   active?: boolean;
   /**
+   * Whether the item is disabled.
+   */
+  disabled?: boolean;
+  /**
    * Function to execute on press.
    */
-  onPress?: () => void;
+  onPress?: (e: GestureResponderEvent) => void;
+  /**
+   * Type of background drawable to display the feedback (Android).
+   * https://reactnative.dev/docs/pressable#rippleconfig
+   */
+  background?: PressableAndroidRippleConfig;
   /**
    * Accessibility label for the button. This is read by the screen reader when the user taps the button.
    */
-  accessibilityLabel?: string;
+  'aria-label'?: string;
   /**
    * Callback which returns a React element to display on the right side. For instance a Badge.
    */
-  right?: (props: { color: string }) => React.ReactNode;
+  right?: (props: { color: ColorValue }) => React.ReactNode;
+  /**
+   * Specifies the largest possible scale a label font can reach.
+   */
+  labelMaxFontSizeMultiplier?: number;
+  /**
+   * Sets additional distance outside of element in which a press can be detected.
+   */
+  hitSlop?: TouchableRippleProps['hitSlop'];
   style?: StyleProp<ViewStyle>;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
+  /**
+   * testID to be used on tests.
+   */
+  testID?: string;
 };
 
 /**
  * A component used to show an action item with an icon and a label in a navigation drawer.
- *
- * <div class="screenshots">
- *   <figure>
- *     <img class="medium" src="screenshots/drawer-item.png" />
- *   </figure>
- * </div>
  *
  * ## Usage
  * ```js
@@ -56,11 +79,11 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
  * import { Drawer } from 'react-native-paper';
  *
  * const MyComponent = () => (
- *    <Drawer.Item
- *      style={{ backgroundColor: '#64ffda' }}
- *      icon="star"
- *      label="First Item"
- *    />
+ *   <Drawer.Item
+ *     style={{ backgroundColor: '#64ffda' }}
+ *     icon="star"
+ *     label="First Item"
+ *   />
  * );
  *
  * export default MyComponent;
@@ -70,55 +93,50 @@ const DrawerItem = ({
   icon,
   label,
   active,
-  theme,
+  disabled,
+  theme: themeOverrides,
   style,
   onPress,
-  accessibilityLabel,
+  background,
+  'aria-label': ariaLabel,
   right,
+  labelMaxFontSizeMultiplier,
+  hitSlop,
+  testID,
   ...rest
 }: Props) => {
-  const { roundness, isV3 } = theme;
+  const theme = useInternalTheme(themeOverrides);
 
-  const backgroundColor = active
-    ? isV3
-      ? theme.colors.secondaryContainer
-      : color(theme.colors.primary).alpha(0.12).rgb().string()
-    : 'transparent';
+  const backgroundColor = active ? theme.colors.secondaryContainer : undefined;
   const contentColor = active
-    ? isV3
-      ? theme.colors.onSecondaryContainer
-      : theme.colors.primary
-    : isV3
-    ? theme.colors.onSurfaceVariant
-    : color(theme.colors.text).alpha(0.68).rgb().string();
+    ? theme.colors.onSecondaryContainer
+    : theme.colors.onSurfaceVariant;
 
-  const labelMargin = icon ? (isV3 ? 12 : 32) : 0;
-  const borderRadius = (isV3 ? 7 : 1) * roundness;
-  const underlayColor = isV3
-    ? color(backgroundColor)
-        .mix(color(theme.colors.onSecondaryContainer), 0.16)
-        .rgb()
-        .toString()
-    : undefined;
-  const font = isV3 ? theme.fonts.labelLarge : theme.fonts.medium;
+  const labelMargin = icon ? 12 : 0;
+  const borderRadius = theme.shapes.corner.extraLarge;
+  const font = theme.fonts.labelLarge;
 
   return (
     <View {...rest}>
       <TouchableRipple
         borderless
+        disabled={disabled}
+        background={background}
         onPress={onPress}
         style={[
           styles.container,
+          styles.v3Container,
           { backgroundColor, borderRadius },
-          isV3 && styles.v3Container,
           style,
         ]}
-        accessibilityRole="button"
-        accessibilityState={{ selected: active }}
-        accessibilityLabel={accessibilityLabel}
-        underlayColor={underlayColor}
+        role="button"
+        aria-selected={active}
+        aria-label={ariaLabel}
+        theme={theme}
+        hitSlop={hitSlop}
+        testID={testID}
       >
-        <View style={[styles.wrapper, isV3 && styles.v3Wrapper]}>
+        <View style={[styles.wrapper, styles.v3Wrapper]}>
           <View style={styles.content}>
             {icon ? (
               <Icon source={icon} size={24} color={contentColor} />
@@ -135,6 +153,7 @@ const DrawerItem = ({
                   ...font,
                 },
               ]}
+              maxFontSizeMultiplier={labelMaxFontSizeMultiplier}
             >
               {label}
             </Text>
@@ -181,4 +200,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default withInternalTheme(DrawerItem);
+export default DrawerItem;

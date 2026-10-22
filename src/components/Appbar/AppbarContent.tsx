@@ -1,57 +1,57 @@
 import * as React from 'react';
-import {
-  Platform,
+import { StyleSheet, Pressable, View } from 'react-native';
+import type {
+  GestureResponderEvent,
   StyleProp,
-  StyleSheet,
   TextStyle,
-  TouchableWithoutFeedback,
-  View,
   ViewStyle,
+  ViewProps,
 } from 'react-native';
 
-import color from 'color';
-
-import { withInternalTheme } from '../../core/theming';
-import { white } from '../../styles/themes/v2/colors';
-import type {
-  $RemoveChildren,
-  InternalTheme,
-  MD3TypescaleKey,
-} from '../../types';
-import Text from '../Typography/Text';
 import { modeTextVariant } from './utils';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
+import Text from '../Typography/Text';
+import type { TextRef } from '../Typography/Text';
 
-export type Props = $RemoveChildren<typeof View> & {
+type TitleString = {
+  title: string;
+  titleStyle?: StyleProp<TextStyle>;
+};
+
+type TitleElement = { title: React.ReactNode; titleStyle?: never };
+
+export type Props = Omit<React.PropsWithoutRef<ViewProps>, 'children'> & {
+  // For `title` and `titleStyle` props their types are duplicated due to the generation of documentation.
+  // Appropriate type for them are either `TitleString` or `TitleElement`, depends on `title` type.
   /**
-   * Custom color for the text.
-   */
-  color?: string;
-  /**
-   * Text for the title.
+   * Text or component for the title.
    */
   title: React.ReactNode;
   /**
-   * Style for the title.
+   * Style for the title, if `title` is a string.
    */
   titleStyle?: StyleProp<TextStyle>;
   /**
    * Reference for the title.
    */
-  titleRef?: React.RefObject<Text>;
-  /**
-   * @deprecated Deprecated in v5.x
-   * Text for the subtitle.
-   */
-  subtitle?: React.ReactNode;
-  /**
-   * @deprecated Deprecated in v5.x
-   * Style for the subtitle.
-   */
-  subtitleStyle?: StyleProp<TextStyle>;
+  titleRef?: React.RefObject<TextRef>;
   /**
    * Function to execute on press.
    */
-  onPress?: () => void;
+  onPress?: (e: GestureResponderEvent) => void;
+  /**
+   * If true, disable all interactions for this component.
+   */
+  disabled?: boolean;
+  /**
+   * Custom color for the text.
+   */
+  color?: string;
+  /**
+   * Specifies the largest possible scale a title font can reach.
+   */
+  titleMaxFontSizeMultiplier?: number;
   /**
    * @internal
    */
@@ -60,15 +60,15 @@ export type Props = $RemoveChildren<typeof View> & {
   /**
    * @optional
    */
-  theme: InternalTheme;
-};
+  theme?: ThemeProp;
+  /**
+   * testID to be used on tests.
+   */
+  testID?: string;
+} & (TitleString | TitleElement);
 
 /**
- * A component used to display a title and optional subtitle in an appbar.
- *
- * <div class="screenshots">
- *   <img class="small" src="screenshots/appbar-content.png" />
- * </div>
+ * A component used to display a title in an appbar.
  *
  * ## Usage
  * ```js
@@ -76,9 +76,9 @@ export type Props = $RemoveChildren<typeof View> & {
  * import { Appbar } from 'react-native-paper';
  *
  * const MyComponent = () => (
- *     <Appbar.Header>
- *        <Appbar.Content title="Title" />
- *     </Appbar.Header>
+ *   <Appbar.Header>
+ *      <Appbar.Content title="Title" />
+ *   </Appbar.Header>
  * );
  *
  * export default MyComponent;
@@ -86,26 +86,22 @@ export type Props = $RemoveChildren<typeof View> & {
  */
 const AppbarContent = ({
   color: titleColor,
-  subtitle,
-  subtitleStyle,
   onPress,
+  disabled,
   style,
   titleRef,
   titleStyle,
-  theme,
   title,
+  titleMaxFontSizeMultiplier,
   mode = 'small',
+  theme: themeOverrides,
+  testID,
   ...rest
 }: Props) => {
-  const { isV3, colors } = theme;
+  const theme = useInternalTheme(themeOverrides);
+  const { colors, fonts } = theme;
 
-  const titleTextColor = titleColor
-    ? titleColor
-    : isV3
-    ? colors.onSurface
-    : white;
-
-  const subtitleColor = color(titleTextColor).alpha(0.7).rgb().string();
+  const titleTextColor = titleColor ? titleColor : colors.onSurface;
 
   const modeContainerStyles = {
     small: styles.v3DefaultContainer,
@@ -114,52 +110,56 @@ const AppbarContent = ({
     'center-aligned': styles.v3DefaultContainer,
   };
 
-  const variant = modeTextVariant[mode] as MD3TypescaleKey;
+  const variant = modeTextVariant[mode];
 
-  return (
-    <TouchableWithoutFeedback
-      accessibilityRole="button"
-      onPress={onPress}
-      disabled={!onPress}
-    >
-      <View
-        pointerEvents="box-none"
-        style={[styles.container, isV3 && modeContainerStyles[mode], style]}
-        {...rest}
-      >
+  const contentWrapperProps = {
+    pointerEvents: 'box-none',
+    style: [styles.container, modeContainerStyles[mode], style],
+    testID,
+    ...rest,
+  } satisfies ViewProps;
+
+  const content = (
+    <>
+      {typeof title === 'string' ? (
         <Text
-          {...(isV3 && { variant })}
+          variant={variant}
           ref={titleRef}
           style={[
             {
               color: titleTextColor,
-              ...(isV3
-                ? theme.fonts[variant]
-                : Platform.OS === 'ios'
-                ? theme.fonts.regular
-                : theme.fonts.medium),
+              ...fonts[variant],
             },
-            !isV3 && styles.title,
             titleStyle,
           ]}
           numberOfLines={1}
           accessible
-          // @ts-ignore Type '"heading"' is not assignable to type ...
-          accessibilityRole={Platform.OS === 'web' ? 'heading' : 'header'}
+          role={onPress ? 'none' : 'heading'}
+          maxFontSizeMultiplier={titleMaxFontSizeMultiplier}
         >
           {title}
         </Text>
-        {!isV3 && subtitle ? (
-          <Text
-            style={[styles.subtitle, { color: subtitleColor }, subtitleStyle]}
-            numberOfLines={1}
-          >
-            {subtitle}
-          </Text>
-        ) : null}
-      </View>
-    </TouchableWithoutFeedback>
+      ) : (
+        title
+      )}
+    </>
   );
+
+  if (onPress) {
+    return (
+      <Pressable
+        role="button"
+        aria-disabled={disabled}
+        onPress={onPress}
+        disabled={disabled}
+        {...contentWrapperProps}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return <View {...contentWrapperProps}>{content}</View>;
 };
 
 AppbarContent.displayName = 'Appbar.Content';
@@ -183,17 +183,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingBottom: 28,
   },
-  title: {
-    fontSize: Platform.OS === 'ios' ? 17 : 20,
-  },
-  subtitle: {
-    fontSize: Platform.OS === 'ios' ? 11 : 14,
-  },
 });
 
-export default withInternalTheme(AppbarContent);
+export default AppbarContent;
 
 // @component-docs ignore-next-line
-const AppbarContentWithTheme = withInternalTheme(AppbarContent);
-// @component-docs ignore-next-line
-export { AppbarContentWithTheme as AppbarContent };
+export { AppbarContent };

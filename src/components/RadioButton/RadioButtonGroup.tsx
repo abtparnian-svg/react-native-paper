@@ -21,23 +21,11 @@ export type RadioButtonContextType = {
   onValueChange: (item: string) => void;
 };
 
-export const RadioButtonContext = React.createContext<RadioButtonContextType>(
-  null as any
-);
+export const RadioButtonContext =
+  React.createContext<RadioButtonContextType | null>(null);
 
 /**
  * Radio button group allows to control a group of radio buttons.
- *
- * <div class="screenshots">
- *   <figure>
- *     <img class="medium" src="screenshots/radio-button-group-android.gif" />
- *  <figcaption>Android</figcaption>
- *   </figure>
- *   <figure>
- *     <img class="medium" src="screenshots/radio-button-group-ios.gif" />
- *  <figcaption>iOS</figcaption>
- *   </figure>
- * </div>
  *
  * ## Usage
  * ```js
@@ -67,7 +55,7 @@ export const RadioButtonContext = React.createContext<RadioButtonContextType>(
  */
 const RadioButtonGroup = ({ value, onValueChange, children }: Props) => (
   <RadioButtonContext.Provider value={{ value, onValueChange }}>
-    <View accessibilityRole="radiogroup">{children}</View>
+    <View role="radiogroup">{children}</View>
   </RadioButtonContext.Provider>
 );
 

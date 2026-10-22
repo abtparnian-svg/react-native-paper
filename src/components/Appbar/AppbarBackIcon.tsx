@@ -1,9 +1,18 @@
-import * as React from 'react';
-import { Platform, I18nManager, View, Image, StyleSheet } from 'react-native';
+import { Image, Platform, StyleSheet, View } from 'react-native';
+import type { ColorValue } from 'react-native';
 
+import { useLocale } from '../../core/locale';
 import MaterialCommunityIcon from '../MaterialCommunityIcon';
 
-const AppbarBackIcon = ({ size, color }: { size: number; color: string }) => {
+const AppbarBackIcon = ({
+  size,
+  color,
+}: {
+  size: number;
+  color: ColorValue;
+}) => {
+  const { direction } = useLocale();
+  const isRTL = direction === 'rtl';
   const iosIconSize = size - 3;
 
   return Platform.OS === 'ios' ? (
@@ -13,16 +22,14 @@ const AppbarBackIcon = ({ size, color }: { size: number; color: string }) => {
         {
           width: size,
           height: size,
-          transform: [{ scaleX: I18nManager.getConstants().isRTL ? -1 : 1 }],
+          transform: [{ scaleX: isRTL ? -1 : 1 }],
         },
       ]}
     >
       <Image
         source={require('../../assets/back-chevron.png')}
-        style={[
-          styles.icon,
-          { tintColor: color, width: iosIconSize, height: iosIconSize },
-        ]}
+        resizeMode="contain"
+        style={{ width: iosIconSize, height: iosIconSize, tintColor: color }}
         accessibilityIgnoresInvertColors
       />
     </View>
@@ -31,7 +38,7 @@ const AppbarBackIcon = ({ size, color }: { size: number; color: string }) => {
       name="arrow-left"
       color={color}
       size={size}
-      direction={I18nManager.getConstants().isRTL ? 'rtl' : 'ltr'}
+      direction={direction}
     />
   );
 };
@@ -40,9 +47,6 @@ const styles = StyleSheet.create({
   wrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  icon: {
-    resizeMode: 'contain',
   },
 });
 

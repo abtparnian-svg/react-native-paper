@@ -1,29 +1,31 @@
 import * as React from 'react';
-import {
+import { StyleSheet, View } from 'react-native';
+import type {
+  ColorValue,
+  GestureResponderEvent,
+  NativeSyntheticEvent,
   StyleProp,
-  StyleSheet,
+  TextLayoutEventData,
+  TextProps,
   TextStyle,
-  View,
   ViewStyle,
 } from 'react-native';
 
-import color from 'color';
-
-import { withInternalTheme } from '../../core/theming';
-import type {
-  $RemoveChildren,
-  EllipsizeProp,
-  InternalTheme,
-} from '../../types';
+import { ListAccordionContext } from './ListAccordionContext';
+import { getLeftStyles, getRightStyles } from './utils';
+import type { Style } from './utils';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
 import TouchableRipple from '../TouchableRipple/TouchableRipple';
+import type { Props as TouchableRippleProps } from '../TouchableRipple/TouchableRipple';
 import Text from '../Typography/Text';
 
 type Title =
   | React.ReactNode
   | ((props: {
       selectable: boolean;
-      ellipsizeMode: EllipsizeProp | undefined;
-      color: string;
+      ellipsizeMode: TextProps['ellipsizeMode'];
+      color: ColorValue;
       fontSize: number;
     }) => React.ReactNode);
 
@@ -31,12 +33,15 @@ type Description =
   | React.ReactNode
   | ((props: {
       selectable: boolean;
-      ellipsizeMode: EllipsizeProp | undefined;
-      color: string;
+      ellipsizeMode: TextProps['ellipsizeMode'];
+      color: ColorValue;
       fontSize: number;
     }) => React.ReactNode);
 
-export type Props = $RemoveChildren<typeof TouchableRipple> & {
+export type Props = Omit<
+  React.PropsWithoutRef<TouchableRippleProps>,
+  'children'
+> & {
   /**
    * Title text for the list item.
    */
@@ -48,36 +53,32 @@ export type Props = $RemoveChildren<typeof TouchableRipple> & {
   /**
    * Callback which returns a React element to display on the left side.
    */
-  left?: (props: {
-    color: string;
-    style: {
-      marginLeft: number;
-      marginRight: number;
-      marginVertical?: number;
-    };
-  }) => React.ReactNode;
+  left?: (props: { color: ColorValue; style: Style }) => React.ReactNode;
   /**
    * Callback which returns a React element to display on the right side.
    */
-  right?: (props: {
-    color: string;
-    style?: {
-      marginRight: number;
-      marginVertical?: number;
-    };
-  }) => React.ReactNode;
+  right?: (props: { color: ColorValue; style?: Style }) => React.ReactNode;
   /**
    * Function to execute on press.
    */
-  onPress?: () => void;
+  onPress?: (e: GestureResponderEvent) => void;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
   /**
-   * Style that is passed to the wrapping TouchableRipple element.
+   * Style that is passed to the root TouchableRipple container.
    */
   style?: StyleProp<ViewStyle>;
+  ref?: React.Ref<View>;
+  /**
+   * Style that is passed to the outermost container that wraps the entire content, including left and right items and both title and description.
+   */
+  containerStyle?: StyleProp<ViewStyle>;
+  /**
+   * Style that is passed to the content container, which wraps the title and description.
+   */
+  contentStyle?: StyleProp<ViewStyle>;
   /**
    * Style that is passed to Title element.
    */
@@ -101,23 +102,29 @@ export type Props = $RemoveChildren<typeof TouchableRipple> & {
    *
    * See [`ellipsizeMode`](https://reactnative.dev/docs/text#ellipsizemode)
    */
-  titleEllipsizeMode?: EllipsizeProp;
+  titleEllipsizeMode?: TextProps['ellipsizeMode'];
   /**
    * Ellipsize Mode for the Description.  One of `'head'`, `'middle'`, `'tail'`, `'clip'`.
    *
    * See [`ellipsizeMode`](https://reactnative.dev/docs/text#ellipsizemode)
    */
-  descriptionEllipsizeMode?: EllipsizeProp;
+  descriptionEllipsizeMode?: TextProps['ellipsizeMode'];
+  /**
+   * Specifies the largest possible scale a title font can reach.
+   */
+  titleMaxFontSizeMultiplier?: number;
+  /**
+   * Specifies the largest possible scale a description font can reach.
+   */
+  descriptionMaxFontSizeMultiplier?: number;
+  /**
+   * TestID used for testing purposes
+   */
+  testID?: string;
 };
 
 /**
  * A component to show tiles inside a List.
- *
- * <div class="screenshots">
- *   <img class="medium" src="screenshots/list-item-1.png" />
- *   <img class="medium" src="screenshots/list-item-2.png" />
- *   <img class="medium" src="screenshots/list-item-3.png" />
- * </div>
  *
  * ## Usage
  * ```js
@@ -135,7 +142,7 @@ export type Props = $RemoveChildren<typeof TouchableRipple> & {
  * export default MyComponent;
  * ```
  *
- * @extends TouchableRipple props https://callstack.github.io/react-native-paper/touchable-ripple.html
+ * @extends TouchableRipple props https://callstack.github.io/react-native-paper/docs/components/TouchableRipple
  */
 const ListItem = ({
   left,
@@ -143,18 +150,36 @@ const ListItem = ({
   title,
   description,
   onPress,
-  theme,
+  theme: themeOverrides,
   style,
+  containerStyle,
+  contentStyle,
   titleStyle,
   titleNumberOfLines = 1,
   descriptionNumberOfLines = 2,
   titleEllipsizeMode,
   descriptionEllipsizeMode,
   descriptionStyle,
+  descriptionMaxFontSizeMultiplier,
+  titleMaxFontSizeMultiplier,
+  testID,
+  ref,
   ...rest
 }: Props) => {
+  const theme = useInternalTheme(themeOverrides);
+  const { hasLeft } = React.useContext(ListAccordionContext);
+  const shouldIndent = hasLeft && !left && !right;
+  const [alignToTop, setAlignToTop] = React.useState(false);
+
+  const onDescriptionTextLayout = (
+    event: NativeSyntheticEvent<TextLayoutEventData>
+  ) => {
+    const { nativeEvent } = event;
+    setAlignToTop(nativeEvent.lines.length >= 2);
+  };
+
   const renderDescription = (
-    descriptionColor: string,
+    descriptionColor: ColorValue,
     description?: Description | null
   ) => {
     return typeof description === 'function' ? (
@@ -174,6 +199,8 @@ const ListItem = ({
           { color: descriptionColor },
           descriptionStyle,
         ]}
+        onTextLayout={onDescriptionTextLayout}
+        maxFontSizeMultiplier={descriptionMaxFontSizeMultiplier}
       >
         {description}
       </Text>
@@ -181,9 +208,7 @@ const ListItem = ({
   };
 
   const renderTitle = () => {
-    const titleColor = theme.isV3
-      ? theme.colors.onSurface
-      : color(theme.colors.text).alpha(0.87).rgb().string();
+    const titleColor = theme.colors.onSurface;
 
     return typeof title === 'function' ? (
       title({
@@ -198,35 +223,36 @@ const ListItem = ({
         ellipsizeMode={titleEllipsizeMode}
         numberOfLines={titleNumberOfLines}
         style={[styles.title, { color: titleColor }, titleStyle]}
+        maxFontSizeMultiplier={titleMaxFontSizeMultiplier}
       >
         {title}
       </Text>
     );
   };
 
-  const descriptionColor = theme.isV3
-    ? theme.colors.onSurfaceVariant
-    : color(theme.colors.text).alpha(0.54).rgb().string();
+  const descriptionColor = theme.colors.onSurfaceVariant;
 
   return (
     <TouchableRipple
       {...rest}
-      style={[styles.container, style]}
+      ref={ref}
+      style={
+        shouldIndent
+          ? [styles.container, styles.indent, style]
+          : [styles.container, style]
+      }
       onPress={onPress}
+      theme={theme}
+      testID={testID}
     >
-      <View style={styles.row}>
+      <View style={[styles.row, containerStyle]}>
         {left
           ? left({
               color: descriptionColor,
-              style: description
-                ? styles.iconMarginLeft
-                : {
-                    ...styles.iconMarginLeft,
-                    ...styles.marginVerticalNone,
-                  },
+              style: getLeftStyles(alignToTop, description),
             })
           : null}
-        <View style={[styles.item, styles.content]}>
+        <View style={[styles.item, styles.content, contentStyle]}>
           {renderTitle()}
 
           {description
@@ -236,12 +262,7 @@ const ListItem = ({
         {right
           ? right({
               color: descriptionColor,
-              style: description
-                ? styles.iconMarginRight
-                : {
-                    ...styles.iconMarginRight,
-                    ...styles.marginVerticalNone,
-                  },
+              style: getRightStyles(alignToTop, description),
             })
           : null}
       </View>
@@ -253,10 +274,16 @@ ListItem.displayName = 'List.Item';
 
 const styles = StyleSheet.create({
   container: {
-    padding: 8,
+    paddingVertical: 8,
+    paddingRight: 24,
+  },
+  indent: {
+    paddingLeft: 40,
   },
   row: {
+    width: '100%',
     flexDirection: 'row',
+    marginVertical: 6,
   },
   title: {
     fontSize: 16,
@@ -264,17 +291,14 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 14,
   },
-  marginVerticalNone: { marginVertical: 0 },
-  iconMarginLeft: { marginLeft: 0, marginRight: 16 },
-  iconMarginRight: { marginRight: 0 },
   item: {
-    marginVertical: 6,
-    paddingLeft: 8,
+    paddingLeft: 16,
   },
   content: {
-    flex: 1,
+    flexShrink: 1,
+    flexGrow: 1,
     justifyContent: 'center',
   },
 });
 
-export default withInternalTheme(ListItem);
+export default ListItem;

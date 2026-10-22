@@ -1,24 +1,30 @@
 import * as React from 'react';
-import {
+import { Platform, StyleSheet, View } from 'react-native';
+import type {
+  ColorValue,
   GestureResponderEvent,
-  Platform,
-  Pressable,
   StyleProp,
-  StyleSheet,
   ViewStyle,
 } from 'react-native';
 
-import { withInternalTheme } from '../../core/theming';
-import type { InternalTheme } from '../../types';
-import { getTouchableRippleColors } from './utils';
+import color from 'color';
 
-export type Props = React.ComponentPropsWithRef<typeof Pressable> & {
+import type { PressableProps, PressableStateCallbackType } from './Pressable';
+import { Pressable } from './Pressable';
+import { getTouchableRippleColors } from './utils';
+import { SettingsContext } from '../../core/settings';
+import type { Settings } from '../../core/settings';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
+import hasTouchHandler from '../../utils/hasTouchHandler';
+
+export type Props = PressableProps & {
   /**
    * Whether to render the ripple outside the view bounds.
    */
   borderless?: boolean;
   /**
-   * Type of background drawabale to display the feedback (Android).
+   * Type of background drawable to display the feedback (Android).
    * https://reactnative.dev/docs/pressable#rippleconfig
    */
   background?: Object;
@@ -39,9 +45,17 @@ export type Props = React.ComponentPropsWithRef<typeof Pressable> & {
    */
   onLongPress?: (e: GestureResponderEvent) => void;
   /**
+   * Function to execute immediately when a touch is engaged, before `onPressOut` and `onPress`.
+   */
+  onPressIn?: (e: GestureResponderEvent) => void;
+  /**
+   * Function to execute when a touch is released.
+   */
+  onPressOut?: (e: GestureResponderEvent) => void;
+  /**
    * Color of the ripple effect (Android >= 5.0 and Web).
    */
-  rippleColor?: string;
+  rippleColor?: ColorValue;
   /**
    * Color of the underlay for the highlight effect (Android < 5.0 and iOS).
    */
@@ -49,24 +63,24 @@ export type Props = React.ComponentPropsWithRef<typeof Pressable> & {
   /**
    * Content of the `TouchableRipple`.
    */
-  children: React.ReactNode;
-  style?: StyleProp<ViewStyle>;
+  children:
+    | ((state: PressableStateCallbackType) => React.ReactNode)
+    | React.ReactNode;
+  style?:
+    | StyleProp<ViewStyle>
+    | ((state: PressableStateCallbackType) => StyleProp<ViewStyle>)
+    | undefined;
+  ref?: React.Ref<View>;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
 };
 
 /**
  * A wrapper for views that should respond to touches.
  * Provides a material "ink ripple" interaction effect for supported platforms (>= Android Lollipop).
  * On unsupported platforms, it falls back to a highlight effect.
- *
- * <div class="screenshots">
- *   <figure>
- *     <img class="small" src="screenshots/touchable-ripple.gif" />
- *   </figure>
- * </div>
  *
  * ## Usage
  * ```js
@@ -96,148 +110,191 @@ const TouchableRipple = ({
   rippleColor,
   underlayColor: _underlayColor,
   children,
-  theme,
+  theme: themeOverrides,
+  ref,
   ...rest
 }: Props) => {
-  const handlePressIn = (e: any) => {
-    const { centered, onPressIn } = rest;
+  const theme = useInternalTheme(themeOverrides);
+  const { calculatedRippleColor } = getTouchableRippleColors({
+    theme,
+    rippleColor,
+  });
+  // Web-only style. PlatformColor doesn't exist on web, so the calculated
+  // ripple color is effectively always a string here.
+  const hoverColor =
+    typeof calculatedRippleColor === 'string'
+      ? color(calculatedRippleColor).fade(0.5).rgb().string()
+      : calculatedRippleColor;
+  const { rippleEffectEnabled } = React.useContext<Settings>(SettingsContext);
 
-    onPressIn?.(e);
+  const { onPress, onLongPress, onPressIn, onPressOut } = rest;
 
-    const { calculatedRippleColor } = getTouchableRippleColors({
-      theme,
-      rippleColor,
-    });
+  const handlePressIn = React.useCallback(
+    (e: any) => {
+      onPressIn?.(e);
 
-    const button = e.currentTarget;
-    const style = window.getComputedStyle(button);
-    const dimensions = button.getBoundingClientRect();
+      if (rippleEffectEnabled) {
+        const { centered } = rest;
 
-    let touchX;
-    let touchY;
+        const button = e.currentTarget;
+        const style = window.getComputedStyle(button);
+        const dimensions = button.getBoundingClientRect();
 
-    const { changedTouches, touches } = e.nativeEvent;
-    const touch = touches?.[0] ?? changedTouches?.[0];
+        let touchX;
+        let touchY;
 
-    // If centered or it was pressed using keyboard - enter or space
-    if (centered || !touch) {
-      touchX = dimensions.width / 2;
-      touchY = dimensions.height / 2;
-    } else {
-      touchX = touch.locationX ?? e.pageX;
-      touchY = touch.locationY ?? e.pageY;
-    }
+        const { changedTouches, touches } = e.nativeEvent;
+        const touch = touches?.[0] ?? changedTouches?.[0];
 
-    // Get the size of the button to determine how big the ripple should be
-    const size = centered
-      ? // If ripple is always centered, we don't need to make it too big
-        Math.min(dimensions.width, dimensions.height) * 1.25
-      : // Otherwise make it twice as big so clicking on one end spreads ripple to other
-        Math.max(dimensions.width, dimensions.height) * 2;
+        // If centered or it was pressed using keyboard - enter or space
+        if (centered || !touch) {
+          touchX = dimensions.width / 2;
+          touchY = dimensions.height / 2;
+        } else {
+          touchX = touch.locationX ?? e.pageX;
+          touchY = touch.locationY ?? e.pageY;
+        }
 
-    // Create a container for our ripple effect so we don't need to change the parent's style
-    const container = document.createElement('span');
+        // Get the size of the button to determine how big the ripple should be
+        const size = centered
+          ? // If ripple is always centered, we don't need to make it too big
+            Math.min(dimensions.width, dimensions.height) * 1.5
+          : // Otherwise make it twice as big so clicking on one end spreads ripple to other
+            Math.max(dimensions.width, dimensions.height) * 2;
 
-    container.setAttribute('data-paper-ripple', '');
+        // Create a container for our ripple effect so we don't need to change the parent's style
+        const container = document.createElement('span');
 
-    Object.assign(container.style, {
-      position: 'absolute',
-      pointerEvents: 'none',
-      top: '0',
-      left: '0',
-      right: '0',
-      bottom: '0',
-      borderTopLeftRadius: style.borderTopLeftRadius,
-      borderTopRightRadius: style.borderTopRightRadius,
-      borderBottomRightRadius: style.borderBottomRightRadius,
-      borderBottomLeftRadius: style.borderBottomLeftRadius,
-      overflow: centered ? 'visible' : 'hidden',
-    });
+        container.setAttribute('data-paper-ripple', '');
 
-    // Create span to show the ripple effect
-    const ripple = document.createElement('span');
+        Object.assign(container.style, {
+          position: 'absolute',
+          pointerEvents: 'none',
+          top: '0',
+          left: '0',
+          right: '0',
+          bottom: '0',
+          borderTopLeftRadius: style.borderTopLeftRadius,
+          borderTopRightRadius: style.borderTopRightRadius,
+          borderBottomRightRadius: style.borderBottomRightRadius,
+          borderBottomLeftRadius: style.borderBottomLeftRadius,
+          overflow: centered ? 'visible' : 'hidden',
+        });
 
-    Object.assign(ripple.style, {
-      position: 'absolute',
-      pointerEvents: 'none',
-      backgroundColor: calculatedRippleColor,
-      borderRadius: '50%',
+        // Create span to show the ripple effect
+        const ripple = document.createElement('span');
 
-      /* Transition configuration */
-      transitionProperty: 'transform opacity',
-      transitionDuration: `${Math.min(size * 1.5, 350)}ms`,
-      transitionTimingFunction: 'linear',
-      transformOrigin: 'center',
-
-      /* We'll animate these properties */
-      transform: 'translate3d(-50%, -50%, 0) scale3d(0.1, 0.1, 0.1)',
-      opacity: '0.5',
-
-      // Position the ripple where cursor was
-      left: `${touchX}px`,
-      top: `${touchY}px`,
-      width: `${size}px`,
-      height: `${size}px`,
-    });
-
-    // Finally, append it to DOM
-    container.appendChild(ripple);
-    button.appendChild(container);
-
-    // rAF runs in the same frame as the event handler
-    // Use double rAF to ensure the transition class is added in next frame
-    // This will make sure that the transition animation is triggered
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
         Object.assign(ripple.style, {
-          transform: 'translate3d(-50%, -50%, 0) scale3d(1, 1, 1)',
-          opacity: '1',
+          position: 'absolute',
+          pointerEvents: 'none',
+          backgroundColor: calculatedRippleColor,
+          borderRadius: '50%',
+
+          /* Transition configuration */
+          transitionProperty: 'transform opacity',
+          transitionDuration: `${Math.min(size * 1.5, 350)}ms`,
+          transitionTimingFunction: 'linear',
+          transformOrigin: 'center',
+
+          /* We'll animate these properties */
+          transform: 'translate3d(-50%, -50%, 0) scale3d(0.1, 0.1, 0.1)',
+          opacity: '0.5',
+
+          // Position the ripple where cursor was
+          left: `${touchX}px`,
+          top: `${touchY}px`,
+          width: `${size}px`,
+          height: `${size}px`,
         });
-      });
-    });
-  };
 
-  const handlePressOut = (e: any) => {
-    rest.onPressOut?.(e);
+        // Finally, append it to DOM
+        container.appendChild(ripple);
+        button.appendChild(container);
 
-    const containers = e.currentTarget.querySelectorAll(
-      '[data-paper-ripple]'
-    ) as HTMLElement[];
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        containers.forEach((container) => {
-          const ripple = container.firstChild as HTMLSpanElement;
-
-          Object.assign(ripple.style, {
-            transitionDuration: '250ms',
-            opacity: 0,
+        // rAF runs in the same frame as the event handler
+        // Use double rAF to ensure the transition class is added in next frame
+        // This will make sure that the transition animation is triggered
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            Object.assign(ripple.style, {
+              transform: 'translate3d(-50%, -50%, 0) scale3d(1, 1, 1)',
+              opacity: '1',
+            });
           });
-
-          // Finally remove the span after the transition
-          setTimeout(() => {
-            const { parentNode } = container;
-
-            if (parentNode) {
-              parentNode.removeChild(container);
-            }
-          }, 500);
         });
-      });
-    });
-  };
+      }
+    },
+    [onPressIn, rest, rippleEffectEnabled, calculatedRippleColor]
+  );
 
-  const disabled = disabledProp || !rest.onPress;
+  const handlePressOut = React.useCallback(
+    (e: any) => {
+      onPressOut?.(e);
+
+      if (rippleEffectEnabled) {
+        const containers: NodeListOf<HTMLElement> =
+          e.currentTarget.querySelectorAll('[data-paper-ripple]');
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            containers.forEach((container) => {
+              const ripple = container.firstElementChild;
+              if (!(ripple instanceof HTMLSpanElement)) {
+                return;
+              }
+
+              Object.assign(ripple.style, {
+                transitionDuration: '250ms',
+                opacity: 0,
+              });
+
+              // Finally remove the span after the transition
+              setTimeout(() => {
+                const { parentNode } = container;
+
+                if (parentNode) {
+                  parentNode.removeChild(container);
+                }
+              }, 500);
+            });
+          });
+        });
+      }
+    },
+    [onPressOut, rippleEffectEnabled]
+  );
+
+  const hasPassedTouchHandler = hasTouchHandler({
+    onPress,
+    onLongPress,
+    onPressIn,
+    onPressOut,
+  });
+
+  const disabled = disabledProp || !hasPassedTouchHandler;
 
   return (
     <Pressable
       {...rest}
+      ref={ref}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}
-      style={[styles.touchable, borderless && styles.borderless, style]}
+      style={(state) => [
+        styles.touchable,
+        borderless && styles.borderless,
+        // focused state is not ready yet: https://github.com/necolas/react-native-web/issues/1849
+        // state.focused && { backgroundColor: ___ },
+        state.hovered && { backgroundColor: hoverColor },
+        disabled && styles.disabled,
+        typeof style === 'function' ? style(state) : style,
+      ]}
     >
-      {React.Children.only(children)}
+      {(state) =>
+        React.Children.only(
+          typeof children === 'function' ? children(state) : children
+        )
+      }
     </Pressable>
   );
 };
@@ -250,11 +307,19 @@ TouchableRipple.supported = true;
 const styles = StyleSheet.create({
   touchable: {
     position: 'relative',
-    ...(Platform.OS === 'web' && { cursor: 'pointer' }),
+    ...(Platform.OS === 'web' && {
+      cursor: 'pointer',
+      transition: '150ms background-color',
+    }),
+  },
+  disabled: {
+    ...(Platform.OS === 'web' && {
+      cursor: 'auto',
+    }),
   },
   borderless: {
     overflow: 'hidden',
   },
 });
 
-export default withInternalTheme(TouchableRipple);
+export default TouchableRipple;

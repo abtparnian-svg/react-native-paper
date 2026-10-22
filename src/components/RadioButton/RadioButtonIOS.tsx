@@ -1,15 +1,21 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { StyleSheet, View } from 'react-native';
+import type { GestureResponderEvent } from 'react-native';
 
-import { withInternalTheme } from '../../core/theming';
-import type { $RemoveChildren, InternalTheme } from '../../types';
-import { getSelectionControlIOSColor } from '../Checkbox/utils';
+import { RadioButtonContext } from './RadioButtonGroup';
+import type { RadioButtonContextType } from './RadioButtonGroup';
+import { handlePress, isChecked } from './utils';
+import { getSelectionControlIOSColor } from './utils';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
 import MaterialCommunityIcon from '../MaterialCommunityIcon';
 import TouchableRipple from '../TouchableRipple/TouchableRipple';
-import { RadioButtonContext, RadioButtonContextType } from './RadioButtonGroup';
-import { handlePress, isChecked } from './utils';
+import type { Props as TouchableRippleProps } from '../TouchableRipple/TouchableRipple';
 
-export type Props = $RemoveChildren<typeof TouchableRipple> & {
+export type Props = Omit<
+  React.PropsWithoutRef<TouchableRippleProps>,
+  'children'
+> & {
   /**
    * Value of the radio button
    */
@@ -25,7 +31,7 @@ export type Props = $RemoveChildren<typeof TouchableRipple> & {
   /**
    * Function to execute on press.
    */
-  onPress?: () => void;
+  onPress?: (e: GestureResponderEvent) => void;
   /**
    * Custom color for radio.
    */
@@ -33,7 +39,7 @@ export type Props = $RemoveChildren<typeof TouchableRipple> & {
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
   /**
    * testID to be used on tests.
    */
@@ -45,29 +51,22 @@ export type Props = $RemoveChildren<typeof TouchableRipple> & {
  * This component follows platform guidelines for iOS, but can be used
  * on any platform.
  *
- * <div class="screenshots">
- *   <figure>
- *     <img src="screenshots/radio-enabled.ios.png" />
- *     <figcaption>Enabled</figcaption>
- *   </figure>
- *   <figure>
- *     <img src="screenshots/radio-disabled.ios.png" />
- *     <figcaption>Disabled</figcaption>
- *   </figure>
- * </div>
+ * @extends TouchableRipple props https://callstack.github.io/react-native-paper/docs/components/TouchableRipple
  */
 const RadioButtonIOS = ({
   disabled,
   onPress,
-  theme,
+  theme: themeOverrides,
   status,
   value,
   testID,
   ...rest
 }: Props) => {
+  const theme = useInternalTheme(themeOverrides);
+
   return (
     <RadioButtonContext.Consumer>
-      {(context?: RadioButtonContextType) => {
+      {(context: RadioButtonContextType | null) => {
         const checked =
           isChecked({
             contextValue: context?.value,
@@ -75,35 +74,38 @@ const RadioButtonIOS = ({
             value,
           }) === 'checked';
 
-        const { checkedColor, rippleColor } = getSelectionControlIOSColor({
+        const { checkedColor } = getSelectionControlIOSColor({
           theme,
           disabled,
           customColor: rest.color,
         });
+        const opacity = checked ? 1 : 0;
 
         return (
           <TouchableRipple
             {...rest}
             borderless
-            rippleColor={rippleColor}
             onPress={
               disabled
                 ? undefined
-                : () => {
+                : (event) => {
                     handlePress({
                       onPress,
                       value,
                       onValueChange: context?.onValueChange,
+                      event,
                     });
                   }
             }
-            accessibilityRole="radio"
-            accessibilityState={{ disabled, checked }}
-            accessibilityLiveRegion="polite"
+            role="radio"
+            aria-disabled={disabled}
+            aria-checked={checked}
+            aria-live="polite"
             style={styles.container}
             testID={testID}
+            theme={theme}
           >
-            <View style={{ opacity: checked ? 1 : 0 }}>
+            <View style={{ opacity }}>
               <MaterialCommunityIcon
                 allowFontScaling={false}
                 name="check"
@@ -128,9 +130,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export default withInternalTheme(RadioButtonIOS);
+export default RadioButtonIOS;
 
 // @component-docs ignore-next-line
-const RadioButtonIOSWithTheme = withInternalTheme(RadioButtonIOS);
-// @component-docs ignore-next-line
-export { RadioButtonIOSWithTheme as RadioButtonIOS };
+export { RadioButtonIOS };

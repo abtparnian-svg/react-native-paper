@@ -1,18 +1,12 @@
 import * as React from 'react';
-import {
-  Animated,
-  Easing,
-  Platform,
-  StyleProp,
-  StyleSheet,
-  View,
-  ViewStyle,
-} from 'react-native';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate ActivityIndicator to Reanimated.
+import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
+import type { ColorValue, StyleProp, ViewProps, ViewStyle } from 'react-native';
 
-import { withInternalTheme } from '../core/theming';
-import type { InternalTheme } from '../types';
+import { useInternalTheme } from '../core/theming';
+import type { ThemeProp } from '../theme/types';
 
-export type Props = React.ComponentPropsWithRef<typeof View> & {
+export type Props = ViewProps & {
   /**
    * Whether to show the indicator or hide it.
    */
@@ -20,7 +14,7 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
   /**
    * The color of the spinner.
    */
-  color?: string;
+  color?: ColorValue;
   /**
    * Size of the indicator.
    */
@@ -33,26 +27,22 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
 };
 
 const DURATION = 2400;
 
 /**
  * Activity indicator is used to present progress of some activity in the app.
- * It can be used as a drop-in for the ActivityIndicator shipped with React Native.
- *
- * <div class="screenshots">
- *   <img src="screenshots/activity-indicator.gif" style="width: 100px;" />
- * </div>
+ * It can be used as a drop-in replacement for the ActivityIndicator shipped with React Native.
  *
  * ## Usage
  * ```js
  * import * as React from 'react';
- * import { ActivityIndicator, MD2Colors } from 'react-native-paper';
+ * import { ActivityIndicator, Palette } from 'react-native-paper';
  *
  * const MyComponent = () => (
- *   <ActivityIndicator animating={true} color={MD2Colors.red800} />
+ *   <ActivityIndicator animating={true} color={Palette.error50} />
  * );
  *
  * export default MyComponent;
@@ -64,9 +54,10 @@ const ActivityIndicator = ({
   hidesWhenStopped = true,
   size: indicatorSize = 'small',
   style,
-  theme,
+  theme: themeOverrides,
   ...rest
 }: Props) => {
+  const theme = useInternalTheme(themeOverrides);
   const { current: timer } = React.useRef<Animated.Value>(
     new Animated.Value(0)
   );
@@ -140,8 +131,8 @@ const ActivityIndicator = ({
         ? 24
         : 48
       : indicatorSize
-      ? indicatorSize
-      : 24;
+        ? indicatorSize
+        : 24;
 
   const frames = (60 * DURATION) / 1000;
   const easing = Easing.bezier(0.4, 0.0, 0.7, 1.0);
@@ -156,8 +147,8 @@ const ActivityIndicator = ({
       style={[styles.container, style]}
       {...rest}
       accessible
-      accessibilityRole="progressbar"
-      accessibilityState={{ busy: animating }}
+      role="progressbar"
+      aria-busy={animating}
     >
       <Animated.View
         style={[{ width: size, height: size, opacity: fade }]}
@@ -247,11 +238,11 @@ const styles = StyleSheet.create({
   },
 
   layer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
 
     justifyContent: 'center',
     alignItems: 'center',
   },
 });
 
-export default withInternalTheme(ActivityIndicator);
+export default ActivityIndicator;

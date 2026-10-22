@@ -1,13 +1,11 @@
-import * as React from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import type * as React from 'react';
+import { StyleSheet, View } from 'react-native';
+import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
 
-import color from 'color';
+import { useInternalTheme } from '../core/theming';
+import type { ThemeProp } from '../theme/types';
 
-import { withInternalTheme } from '../core/theming';
-import { black, white } from '../styles/themes/v2/colors';
-import type { $RemoveChildren, InternalTheme } from '../types';
-
-export type Props = $RemoveChildren<typeof View> & {
+export type Props = Omit<React.PropsWithoutRef<ViewProps>, 'children'> & {
   /**
    * @renamed Renamed from 'inset' to 'leftInset` in v5.x
    * Whether divider has a left inset.
@@ -27,17 +25,11 @@ export type Props = $RemoveChildren<typeof View> & {
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
 };
 
 /**
  * A divider is a thin, lightweight separator that groups content in lists and page layouts.
- *
- * <div class="screenshots">
- *  <figure>
- *    <img class="medium" src="screenshots/divider.png" />
- *  </figure>
- * </div>
  *
  * ## Usage
  * ```js
@@ -61,27 +53,22 @@ const Divider = ({
   leftInset,
   horizontalInset = false,
   style,
-  theme,
+  theme: themeOverrides,
   bold = false,
   ...rest
 }: Props) => {
-  const { dark: isDarkTheme, isV3 } = theme;
+  const theme = useInternalTheme(themeOverrides);
 
-  const dividerColor = isV3
-    ? theme.colors.surfaceVariant
-    : color(isDarkTheme ? white : black)
-        .alpha(0.12)
-        .rgb()
-        .string();
+  const dividerColor = theme.colors.outlineVariant;
 
   return (
     <View
       {...rest}
       style={[
         { height: StyleSheet.hairlineWidth, backgroundColor: dividerColor },
-        leftInset && styles.leftInset,
-        isV3 && horizontalInset && styles.horizontalInset,
-        isV3 && bold && styles.bold,
+        leftInset && styles.v3LeftInset,
+        horizontalInset && styles.horizontalInset,
+        bold && styles.bold,
         style,
       ]}
     />
@@ -89,16 +76,16 @@ const Divider = ({
 };
 
 const styles = StyleSheet.create({
-  leftInset: {
-    marginLeft: 72,
+  v3LeftInset: {
+    marginLeft: 16,
   },
   horizontalInset: {
-    marginLeft: 28,
-    marginRight: 28,
+    marginLeft: 16,
+    marginRight: 16,
   },
   bold: {
     height: 1,
   },
 });
 
-export default withInternalTheme(Divider);
+export default Divider;

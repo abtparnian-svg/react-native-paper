@@ -1,35 +1,24 @@
 import * as React from 'react';
-import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
+import type { ImageProps, StyleProp, ViewStyle } from 'react-native';
 
-import { withInternalTheme } from '../../core/theming';
-import { grey200 } from '../../styles/themes/v2/colors';
-import type { InternalTheme } from '../../types';
+import { CardContext } from './CardContext';
 import { getCardCoverStyle } from './utils';
+import { useInternalTheme } from '../../core/theming';
+import { grey200 } from '../../theme/colors';
+import type { ThemeProp } from '../../theme/types';
+import { splitStyles } from '../../utils/splitStyles';
 
-export type Props = React.ComponentPropsWithRef<typeof Image> & {
-  /**
-   * @internal
-   */
-  index?: number;
-  /**
-   * @internal
-   */
-  total?: number;
+export type Props = ImageProps & {
   style?: StyleProp<ViewStyle>;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
 };
 
 /**
  * A component to show a cover image inside a Card.
- *
- * <div class="screenshots">
- *   <figure>
- *     <img class="small" src="screenshots/card-cover.png" />
- *   </figure>
- * </div>
  *
  * ## Usage
  * ```js
@@ -47,37 +36,64 @@ export type Props = React.ComponentPropsWithRef<typeof Image> & {
  *
  * @extends Image props https://reactnative.dev/docs/image#props
  */
-const CardCover = ({ index, total, style, theme, ...rest }: Props) => {
-  const coverStyle = getCardCoverStyle({ theme, index, total });
+const CardCover = ({ style, theme: themeOverrides, ...rest }: Props) => {
+  const theme = useInternalTheme(themeOverrides);
+  const cardContext = React.useContext(CardContext);
+
+  const flattenedStyles = StyleSheet.flatten<ViewStyle>(style) || {};
+  const [, borderRadiusStyles] = splitStyles(
+    flattenedStyles,
+    (style) => style.startsWith('border') && style.endsWith('Radius')
+  );
+
+  const coverStyle = getCardCoverStyle({
+    theme,
+    borderRadiusStyles,
+  });
+
+  const cardMarginStyle = cardContext
+    ? cardContext.direction === 'horizontal'
+      ? {
+          marginTop: -cardContext.padding,
+          marginLeft: -cardContext.padding,
+          marginBottom: -cardContext.padding,
+        }
+      : {
+          marginTop: -cardContext.padding,
+          marginLeft: -cardContext.padding,
+          marginRight: -cardContext.padding,
+        }
+    : null;
 
   return (
-    <View style={[styles.container, coverStyle, style]}>
+    <View style={[styles.container, cardMarginStyle, coverStyle, style]}>
       <Image
+        resizeMode="cover"
+        accessibilityIgnoresInvertColors
         {...rest}
         style={[styles.image, coverStyle]}
-        accessibilityIgnoresInvertColors
       />
     </View>
   );
 };
 
 CardCover.displayName = 'Card.Cover';
+
 const styles = StyleSheet.create({
   container: {
-    height: 195,
+    height: 194,
     backgroundColor: grey200,
     overflow: 'hidden',
   },
   image: {
     flex: 1,
-    height: undefined,
-    width: undefined,
-    padding: 16,
+    height: 'auto',
+    width: 'auto',
     justifyContent: 'flex-end',
   },
 });
 
-export default withInternalTheme(CardCover);
+export default CardCover;
 
 // @component-docs ignore-next-line
 export { CardCover };

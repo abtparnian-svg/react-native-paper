@@ -1,21 +1,32 @@
 import * as React from 'react';
+import { StyleSheet, View } from 'react-native';
+import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
+
 import {
-  Animated,
   Easing,
-  SafeAreaView,
-  StyleProp,
-  StyleSheet,
-  View,
-  ViewStyle,
-} from 'react-native';
+  interpolate,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { scheduleOnRN } from 'react-native-worklets';
+import useLatestCallback from 'use-latest-callback';
 
-import { withInternalTheme } from '../core/theming';
-import type { InternalTheme } from '../types';
 import Button from './Button/Button';
+import type { Props as ButtonProps } from './Button/Button';
+import type { IconSource } from './Icon';
+import IconButton from './IconButton/IconButton';
+import MaterialCommunityIcon from './MaterialCommunityIcon';
 import Surface from './Surface';
+import type { SurfaceStyle } from './Surface';
 import Text from './Typography/Text';
+import { useLocale } from '../core/locale';
+import { useInternalTheme } from '../core/theming';
+import type { Elevation, ThemeProp } from '../theme/types';
 
-export type Props = React.ComponentProps<typeof Surface> & {
+export type Props = Omit<ViewProps, 'style'> & {
   /**
    * Whether the Snackbar is currently visible.
    */
@@ -25,9 +36,27 @@ export type Props = React.ComponentProps<typeof Surface> & {
    * - `label` - Label of the action button
    * - `onPress` - Callback that is called when action button is pressed.
    */
-  action?: Omit<React.ComponentProps<typeof Button>, 'children'> & {
+  action?: Omit<React.PropsWithoutRef<ButtonProps>, 'children'> & {
     label: string;
   };
+  /**
+   * @supported Available in v5.x with theme version 3
+   * Icon to display when `onIconPress` is defined. Default will be `close` icon.
+   */
+  icon?: IconSource;
+  /**
+   * Function to execute on icon button press. The icon button appears only when this prop is specified.
+   */
+  onIconPress?: () => void;
+  /**
+   * @supported Available in v5.x with theme version 3
+   * Accessibility label for the icon button. This is read by the screen reader when the user taps the button.
+   */
+  iconAccessibilityLabel?: string;
+  /**
+   * testID for the icon button.
+   */
+  iconTestID?: string;
   /**
    * The duration for which the Snackbar is shown.
    */
@@ -41,20 +70,32 @@ export type Props = React.ComponentProps<typeof Surface> & {
    */
   children: React.ReactNode;
   /**
-   * Style for the wrapper of the snackbar
-   */
-  /**
    * @supported Available in v5.x with theme version 3
    * Changes Snackbar shadow and background on iOS and Android.
    */
-  elevation?: 0 | 1 | 2 | 3 | 4 | 5 | Animated.Value;
+  elevation?: Elevation;
+  /**
+   * Specifies the largest possible scale a text font can reach.
+   */
+  maxFontSizeMultiplier?: number;
+  /**
+   * Style for the wrapper of the snackbar
+   */
   wrapperStyle?: StyleProp<ViewStyle>;
-  style?: StyleProp<ViewStyle>;
+  /**
+   * Style for the content of the snackbar
+   */
+  contentStyle?: StyleProp<ViewStyle>;
+  style?: StyleProp<SurfaceStyle>;
   ref?: React.RefObject<View>;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
+  /**
+   * TestID used for testing purposes
+   */
+  testID?: string;
 };
 
 const DURATION_SHORT = 4000;
@@ -62,11 +103,9 @@ const DURATION_MEDIUM = 7000;
 const DURATION_LONG = 10000;
 
 /**
- * Snackbars provide brief feedback about an operation through a message at the bottom of the screen.
- * Snackbar by default uses `onSurface` color from theme.
- * <div class="screenshots">
- *   <img class="small" src="screenshots/snackbar.gif" />
- * </div>
+ * Snackbars provide brief feedback about an operation through a message rendered at the bottom of the container in which it's wrapped.
+ *
+ * Note: To display it as a popup, regardless of the parent's position, wrap it with a `Portal` component – refer to the example in the "More Examples` section.
  *
  * ## Usage
  * ```js
@@ -112,71 +151,106 @@ const DURATION_LONG = 10000;
 const Snackbar = ({
   visible,
   action,
+  icon,
+  onIconPress,
+  iconAccessibilityLabel = 'Close icon',
+  iconTestID,
   duration = DURATION_MEDIUM,
   onDismiss,
   children,
   elevation = 2,
-  wrapperStyle,
   style,
-  theme,
+  wrapperStyle,
+  contentStyle,
+  theme: themeOverrides,
+  maxFontSizeMultiplier,
+  testID,
   ...rest
 }: Props) => {
-  const { current: opacity } = React.useRef<Animated.Value>(
-    new Animated.Value(0.0)
-  );
-  const [hidden, setHidden] = React.useState<boolean>(!visible);
+  const theme = useInternalTheme(themeOverrides);
 
-  const hideTimeout = React.useRef<NodeJS.Timeout | undefined>(undefined);
+  const { direction } = useLocale();
+
+  const { bottom, right, left } = useSafeAreaInsets();
+
+  const opacity = useSharedValue(0);
+
+  const hideTimeout = React.useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
+  const isMounted = React.useRef(true);
+
+  const [hidden, setHidden] = React.useState(!visible);
 
   const { scale } = theme.animation;
 
+  if (visible && hidden) {
+    setHidden(false);
+  }
+
+  const handleShowAnimationFinished = useLatestCallback((finished: boolean) => {
+    if (!finished || !visible || !isMounted.current) {
+      return;
+    }
+
+    const isInfinity =
+      duration === Number.POSITIVE_INFINITY ||
+      duration === Number.NEGATIVE_INFINITY;
+
+    if (!isInfinity) {
+      hideTimeout.current = setTimeout(onDismiss, duration);
+    }
+  });
+
   React.useEffect(() => {
+    if (hideTimeout.current) {
+      clearTimeout(hideTimeout.current);
+      hideTimeout.current = undefined;
+    }
+
+    opacity.value = withTiming(
+      visible ? 1 : 0,
+      {
+        duration: (visible ? 200 : 100) * scale,
+        easing: visible ? Easing.out(Easing.ease) : Easing.inOut(Easing.ease),
+        reduceMotion: ReduceMotion.Never,
+      },
+      (finished) => {
+        if (visible) {
+          scheduleOnRN(handleShowAnimationFinished, finished ?? false);
+        } else if (finished) {
+          scheduleOnRN(setHidden, true);
+        }
+      }
+    );
+  }, [handleShowAnimationFinished, opacity, scale, visible]);
+
+  React.useEffect(() => {
+    isMounted.current = true;
+
     return () => {
-      if (hideTimeout.current) clearTimeout(hideTimeout.current);
+      isMounted.current = false;
+
+      if (hideTimeout.current) {
+        clearTimeout(hideTimeout.current);
+      }
     };
   }, []);
 
-  React.useLayoutEffect(() => {
-    if (visible) {
-      // show
-      if (hideTimeout.current) clearTimeout(hideTimeout.current);
-      setHidden(false);
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 200 * scale,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished) {
-          const isInfinity =
-            duration === Number.POSITIVE_INFINITY ||
-            duration === Number.NEGATIVE_INFINITY;
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [
+      {
+        scale: visible ? interpolate(opacity.value, [0, 1], [0.9, 1]) : 1,
+      },
+    ],
+  }));
 
-          if (finished && !isInfinity) {
-            hideTimeout.current = setTimeout(
-              onDismiss,
-              duration
-            ) as unknown as NodeJS.Timeout;
-          }
-        }
-      });
-    } else {
-      // hide
-      if (hideTimeout.current) clearTimeout(hideTimeout.current);
+  const { colors } = theme;
 
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 100 * scale,
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished) setHidden(true);
-      });
-    }
-  }, [visible, duration, opacity, scale, onDismiss]);
-
-  const { colors, roundness, isV3 } = theme;
-
-  if (hidden) return null;
+  if (hidden) {
+    return null;
+  }
 
   const {
     style: actionStyle,
@@ -185,80 +259,98 @@ const Snackbar = ({
     ...actionProps
   } = action || {};
 
-  const marginRight = action ? 0 : 16;
-  const textColor = theme.isV3
-    ? theme.colors.inversePrimary
-    : theme.colors.accent;
+  const buttonTextColor = colors.inversePrimary;
+  const textColor = colors.inverseOnSurface;
+  const backgroundColor = colors.inverseSurface;
 
-  const renderChildrenWithWrapper = () => {
-    const viewStyles = [
-      styles.content,
-      { marginRight, color: colors?.surface },
-    ];
+  const isIconButton = Boolean(onIconPress);
 
-    if (typeof children === 'string') {
-      return <Text style={viewStyles}>{children}</Text>;
-    }
+  const marginLeft = action ? -12 : -16;
 
-    return (
-      <View style={viewStyles}>
+  const wrapperPaddings = {
+    paddingBottom: bottom,
+    paddingHorizontal: Math.max(left, right),
+  };
+
+  const content =
+    typeof children === 'string' ? (
+      <Text
+        variant="bodyMedium"
+        style={[styles.content, { color: textColor }]}
+        maxFontSizeMultiplier={maxFontSizeMultiplier}
+      >
+        {children}
+      </Text>
+    ) : (
+      <View style={[styles.content, contentStyle]}>
         {/* View is added to allow multiple lines support for Text component as children */}
         <View>{children}</View>
       </View>
     );
-  };
 
   return (
-    <SafeAreaView
+    <View
       pointerEvents="box-none"
-      style={[styles.wrapper, wrapperStyle]}
+      style={[styles.wrapper, wrapperPaddings, wrapperStyle]}
     >
       <Surface
-        pointerEvents="box-none"
-        accessibilityLiveRegion="polite"
-        style={
-          [
-            !isV3 && styles.elevation,
-            styles.container,
-            {
-              borderRadius: roundness,
-              opacity: opacity,
-              transform: [
-                {
-                  scale: visible
-                    ? opacity.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.9, 1],
-                      })
-                    : 1,
-                },
-              ],
-            },
-            { backgroundColor: colors?.onSurface },
-            style,
-          ] as StyleProp<ViewStyle>
-        }
-        {...(isV3 && { elevation })}
+        aria-live="polite"
+        theme={theme}
+        backgroundColor={backgroundColor}
+        borderRadius={theme.shapes.corner.extraSmall}
+        style={[styles.container, animatedStyle, style]}
+        testID={testID}
+        elevation={elevation}
         {...rest}
       >
-        {renderChildrenWithWrapper()}
-        {action ? (
-          <Button
-            onPress={() => {
-              onPressAction?.();
-              onDismiss();
-            }}
-            style={[styles.button, actionStyle]}
-            textColor={textColor}
-            compact
-            mode="text"
-            {...actionProps}
-          >
-            {actionLabel}
-          </Button>
-        ) : null}
+        {content}
+        {(action || isIconButton) && (
+          <View style={[styles.actionsContainer, { marginLeft }]}>
+            {action ? (
+              <Button
+                onPress={(event) => {
+                  onPressAction?.(event);
+                  onDismiss();
+                }}
+                style={[styles.button, actionStyle]}
+                textColor={buttonTextColor}
+                compact={false}
+                mode="text"
+                theme={theme}
+                {...actionProps}
+              >
+                {actionLabel}
+              </Button>
+            ) : null}
+            {isIconButton ? (
+              <IconButton
+                role="button"
+                borderless
+                onPress={onIconPress}
+                iconColor={colors.inverseOnSurface}
+                theme={theme}
+                icon={
+                  icon ||
+                  (({ size, color }) => {
+                    return (
+                      <MaterialCommunityIcon
+                        name="close"
+                        color={color}
+                        size={size}
+                        direction={direction}
+                      />
+                    );
+                  })
+                }
+                aria-label={iconAccessibilityLabel}
+                style={styles.icon}
+                testID={iconTestID}
+              />
+            ) : null}
+          </View>
+        )}
       </Surface>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -286,22 +378,30 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     margin: 8,
-    borderRadius: 4,
+    minHeight: 48,
+    pointerEvents: 'box-none',
   },
   content: {
-    marginLeft: 16,
+    marginHorizontal: 16,
     marginVertical: 14,
     flex: 1,
   },
-  button: {
-    marginHorizontal: 8,
-    marginVertical: 6,
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    minHeight: 48,
   },
-  elevation: {
-    elevation: 6,
+  button: {
+    marginRight: 8,
+    marginLeft: 4,
+  },
+  icon: {
+    width: 40,
+    height: 40,
+    margin: 0,
   },
 });
 
-export default withInternalTheme(Snackbar);
+export default Snackbar;

@@ -1,35 +1,27 @@
 import * as React from 'react';
-import {
-  I18nManager,
-  Image,
-  ImageSourcePropType,
-  Platform,
-} from 'react-native';
+import { Image, Platform } from 'react-native';
+import type { ColorValue } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
 
-import { Consumer as SettingsConsumer } from '../core/settings';
-import { withInternalTheme } from '../core/theming';
-import type { InternalTheme } from '../types';
 import { accessibilityProps } from './MaterialCommunityIcon';
+import { useLocale } from '../core/locale';
+import { Consumer as SettingsConsumer } from '../core/settings';
+import { useInternalTheme } from '../core/theming';
+import type { ThemeProp } from '../theme/types';
 
 type IconSourceBase = string | ImageSourcePropType;
 
 export type IconSource =
   | IconSourceBase
   | Readonly<{ source: IconSourceBase; direction: 'rtl' | 'ltr' | 'auto' }>
-  | ((props: IconProps & { color: string }) => React.ReactNode);
+  | ((props: IconProps & { color: ColorValue }) => React.ReactNode);
 
 type IconProps = {
+  /**
+   * Size of icon.
+   */
   size: number;
   allowFontScaling?: boolean;
-};
-
-type Props = IconProps & {
-  color?: string;
-  source: any;
-  /**
-   * @optional
-   */
-  theme: InternalTheme;
 };
 
 const isImageSource = (source: any) =>
@@ -67,27 +59,75 @@ export const isValidIcon = (source: any) =>
 export const isEqualIcon = (a: any, b: any) =>
   a === b || getIconId(a) === getIconId(b);
 
-const Icon = ({ source, color, size, theme, ...rest }: Props) => {
+export type Props = IconProps & {
+  /**
+   * Icon to display.
+   */
+  source: any;
+  /**
+   * Color of the icon.
+   */
+  color?: ColorValue;
+  /**
+   * TestID used for testing purposes
+   */
+  testID?: string;
+  /**
+   * @optional
+   */
+  theme?: ThemeProp;
+};
+
+/**
+ * An icon component which renders icon from vector library.
+ *
+ * ## Usage
+ * ```js
+ * import * as React from 'react';
+ * import { Icon, Palette } from 'react-native-paper';
+ *
+ * const MyComponent = () => (
+ *   <Icon
+ *     source="camera"
+ *     color={Palette.error50}
+ *     size={20}
+ *   />
+ * );
+ *
+ * export default MyComponent;
+ * ```
+ */
+
+const Icon = ({
+  source,
+  color,
+  size,
+  theme: themeOverrides,
+  testID,
+  ...rest
+}: Props) => {
+  const theme = useInternalTheme(themeOverrides);
+  const { direction: layoutDirection } = useLocale();
   const direction =
     typeof source === 'object' && source.direction && source.source
       ? source.direction === 'auto'
-        ? I18nManager.getConstants().isRTL
-          ? 'rtl'
-          : 'ltr'
+        ? layoutDirection
         : source.direction
       : null;
+
   const s =
     typeof source === 'object' && source.direction && source.source
       ? source.source
       : source;
-  const iconColor =
-    color || (theme.isV3 ? theme.colors.onSurface : theme.colors.text);
+  const iconColor = color || theme.colors.onSurface;
 
   if (isImageSource(s)) {
     return (
       <Image
         {...rest}
+        testID={testID}
         source={s}
+        resizeMode="contain"
         style={[
           {
             transform: [{ scaleX: direction === 'rtl' ? -1 : 1 }],
@@ -96,7 +136,6 @@ const Icon = ({ source, color, size, theme, ...rest }: Props) => {
             width: size,
             height: size,
             tintColor: color,
-            resizeMode: 'contain',
           },
         ]}
         {...accessibilityProps}
@@ -107,20 +146,21 @@ const Icon = ({ source, color, size, theme, ...rest }: Props) => {
     return (
       <SettingsConsumer>
         {({ icon }) => {
-          return icon({
+          return icon?.({
             name: s,
             color: iconColor,
             size,
             direction,
+            testID,
           });
         }}
       </SettingsConsumer>
     );
   } else if (typeof s === 'function') {
-    return s({ color: iconColor, size, direction });
+    return s({ color: iconColor, size, direction, testID });
   }
 
   return null;
 };
 
-export default withInternalTheme(Icon);
+export default Icon;

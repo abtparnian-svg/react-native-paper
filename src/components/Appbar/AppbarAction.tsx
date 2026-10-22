@@ -1,22 +1,19 @@
 import * as React from 'react';
-import type {
-  StyleProp,
-  TouchableWithoutFeedback,
-  ViewStyle,
-} from 'react-native';
+import type { ColorValue, StyleProp, View, ViewStyle } from 'react-native';
 
-import color from 'color';
+import type { AnimatedStyle } from 'react-native-reanimated';
 
 import { useInternalTheme } from '../../core/theming';
-import { black } from '../../styles/themes/v2/colors';
+import type { ThemeProp } from '../../theme/types';
 import type { IconSource } from '../Icon';
 import IconButton from '../IconButton/IconButton';
+import type { Props as IconButtonProps } from '../IconButton/IconButton';
 
-export type Props = React.ComponentPropsWithoutRef<typeof IconButton> & {
+export type Props = React.PropsWithoutRef<IconButtonProps> & {
   /**
    *  Custom color for action icon.
    */
-  color?: string;
+  color?: ColorValue;
   /**
    * Name of the icon to show.
    */
@@ -32,7 +29,7 @@ export type Props = React.ComponentPropsWithoutRef<typeof IconButton> & {
   /**
    * Accessibility label for the button. This is read by the screen reader when the user taps the button.
    */
-  accessibilityLabel?: string;
+  'aria-label'?: string;
   /**
    * Function to execute on press.
    */
@@ -40,18 +37,19 @@ export type Props = React.ComponentPropsWithoutRef<typeof IconButton> & {
   /**
    * @supported Available in v5.x with theme version 3
    *
-   * Whether it's the leading button.
+   * Whether it's the leading button. Note: If `Appbar.BackAction` is present, it will be rendered before any `isLeading` icons.
    */
   isLeading?: boolean;
-  style?: StyleProp<ViewStyle>;
-  ref?: React.RefObject<TouchableWithoutFeedback>;
+  style?: StyleProp<AnimatedStyle<ViewStyle>>;
+  ref?: React.Ref<View>;
+  /**
+   * @optional
+   */
+  theme?: ThemeProp;
 };
 
 /**
  * A component used to display an action item in the appbar.
- * <div class="screenshots">
- *   <img class="small" src="screenshots/appbar-action-android.png" />
- * </div>
  *
  * ## Usage
  * ```js
@@ -62,11 +60,11 @@ export type Props = React.ComponentPropsWithoutRef<typeof IconButton> & {
  * const MORE_ICON = Platform.OS === 'ios' ? 'dots-horizontal' : 'dots-vertical';
  *
  * const MyComponent = () => (
- *     <Appbar.Header>
- *        <Appbar.Content title="Title" subtitle={'Subtitle'} />
- *         <Appbar.Action icon="magnify" onPress={() => {}} />
- *         <Appbar.Action icon={MORE_ICON} onPress={() => {}} />
- *     </Appbar.Header>
+ *   <Appbar.Header>
+ *      <Appbar.Content title="Title" subtitle={'Subtitle'} />
+ *       <Appbar.Action icon="magnify" onPress={() => {}} />
+ *       <Appbar.Action icon={MORE_ICON} onPress={() => {}} />
+ *   </Appbar.Header>
  * );
  *
  * export default MyComponent;
@@ -78,19 +76,20 @@ const AppbarAction = ({
   icon,
   disabled,
   onPress,
-  accessibilityLabel,
+  'aria-label': ariaLabel,
   isLeading,
+  theme: themeOverrides,
+  ref,
   ...rest
 }: Props) => {
-  const theme = useInternalTheme();
+  const theme = useInternalTheme(themeOverrides);
+  const { colors } = theme;
 
   const actionIconColor = iconColor
     ? iconColor
-    : theme.isV3
-    ? isLeading
-      ? theme.colors.onSurface
-      : theme.colors.onSurfaceVariant
-    : color(black).alpha(0.54).rgb().string();
+    : isLeading
+      ? colors.onSurface
+      : colors.onSurfaceVariant;
 
   return (
     <IconButton
@@ -99,8 +98,9 @@ const AppbarAction = ({
       iconColor={actionIconColor}
       icon={icon}
       disabled={disabled}
-      accessibilityLabel={accessibilityLabel}
+      aria-label={ariaLabel}
       animated
+      ref={ref}
       {...rest}
     />
   );

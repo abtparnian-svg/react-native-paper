@@ -1,0 +1,12 @@
+[
+  {
+    "type": "dir-section-header",
+    "name": "guides",
+    "label": "Guides"
+  },
+  {
+    "type": "file",
+    "name": "showcase",
+    "label": "Showcase"
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "text": "Guides",
+    "link": "/docs/guides/getting-started",
+    "activeMatch": "^/docs/guides/"
+  },
+  {
+    "text": "Showcase",
+    "link": "/docs/showcase",
+    "activeMatch": "^/docs/showcase$"
+  }
+]

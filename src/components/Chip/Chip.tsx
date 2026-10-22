@@ -1,28 +1,33 @@
 import * as React from 'react';
-import {
-  AccessibilityState,
-  Animated,
-  Platform,
+import { Platform, StyleSheet, Pressable, View } from 'react-native';
+import type {
+  ColorValue,
+  GestureResponderEvent,
+  PressableAndroidRippleConfig,
   StyleProp,
-  StyleSheet,
+  TextProps,
   TextStyle,
-  TouchableWithoutFeedback,
-  View,
-  ViewStyle,
+  ViewProps,
 } from 'react-native';
 
-import { withInternalTheme } from '../../core/theming';
-import { white } from '../../styles/themes/v2/colors';
-import type { EllipsizeProp, InternalTheme } from '../../types';
+import useLatestCallback from 'use-latest-callback';
+
+import { getChipColors } from './helpers';
+import type { ChipAvatarProps } from './helpers';
+import { useInternalTheme } from '../../core/theming';
+import { white } from '../../theme/colors';
+import type { ThemeProp } from '../../theme/types';
+import hasTouchHandler from '../../utils/hasTouchHandler';
 import type { IconSource } from '../Icon';
 import Icon from '../Icon';
 import MaterialCommunityIcon from '../MaterialCommunityIcon';
 import Surface from '../Surface';
+import type { SurfaceStyle } from '../Surface';
 import TouchableRipple from '../TouchableRipple/TouchableRipple';
+import type { Props as TouchableRippleProps } from '../TouchableRipple/TouchableRipple';
 import Text from '../Typography/Text';
-import { getChipColors } from './helpers';
 
-export type Props = React.ComponentProps<typeof Surface> & {
+export type Props = Omit<ViewProps, 'style'> & {
   /**
    * Mode of the chip.
    * - `flat` - flat chip without outline.
@@ -51,29 +56,65 @@ export type Props = React.ComponentProps<typeof Surface> & {
   selected?: boolean;
   /**
    * Whether to style the chip color as selected.
+   * Note: With theme version 3 `selectedColor` doesn't apply to the `icon`.
+   *       If you want specify custom color for the `icon`, render your own `Icon` component.
    */
-  selectedColor?: string;
+  selectedColor?: ColorValue;
   /**
    * @supported Available in v5.x with theme version 3
    * Whether to display overlay on selected chip
    */
   showSelectedOverlay?: boolean;
   /**
+   * Whether to display default check icon on selected chip.
+   * Note: Check will not be shown if `icon` is specified. If specified, `icon` will be shown regardless of `selected`.
+   */
+  showSelectedCheck?: boolean;
+  /**
    * Whether the chip is disabled. A disabled chip is greyed out and `onPress` is not called on touch.
    */
   disabled?: boolean;
   /**
+   * Type of background drawable to display the feedback (Android).
+   * https://reactnative.dev/docs/pressable#rippleconfig
+   */
+  background?: PressableAndroidRippleConfig;
+  /**
    * Accessibility label for the chip. This is read by the screen reader when the user taps the chip.
    */
-  accessibilityLabel?: string;
+  'aria-label'?: string;
   /**
    * Accessibility label for the close icon. This is read by the screen reader when the user taps the close icon.
    */
   closeIconAccessibilityLabel?: string;
   /**
+   * testID for the close icon button.
+   */
+  closeIconTestID?: string;
+  /**
    * Function to execute on press.
    */
-  onPress?: () => void;
+  onPress?: (e: GestureResponderEvent) => void;
+  /**
+   * Function to execute on long press.
+   */
+  onLongPress?: () => void;
+  /**
+   * Function to execute as soon as the touchable element is pressed and invoked even before onPress.
+   */
+  onPressIn?: (e: GestureResponderEvent) => void;
+  /**
+   * Function to execute as soon as the touch is released even before onPress.
+   */
+  onPressOut?: (e: GestureResponderEvent) => void;
+  /**
+   * Function to execute on close button press. The close button appears only when this prop is specified.
+   */
+  onClose?: () => void;
+  /**
+   * The number of milliseconds a user must touch the element before executing `onLongPress`.
+   */
+  delayLongPress?: number;
   /**
    * @supported Available in v5.x with theme version 3
    * Sets smaller horizontal paddings `12dp` around label, when there is only label.
@@ -85,23 +126,18 @@ export type Props = React.ComponentProps<typeof Surface> & {
    */
   elevated?: boolean;
   /**
-   * Function to execute on long press.
-   */
-  onLongPress?: () => void;
-  /**
-   * Function to execute on close button press. The close button appears only when this prop is specified.
-   */
-  onClose?: () => void;
-  /**
    * Style of chip's text
    */
   textStyle?: StyleProp<TextStyle>;
-  style?: StyleProp<ViewStyle>;
-
+  style?: StyleProp<SurfaceStyle>;
+  /**
+   * Sets additional distance outside of element in which a press can be detected.
+   */
+  hitSlop?: TouchableRippleProps['hitSlop'];
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
   /**
    * Pass down testID from chip props to touchable for Detox tests.
    */
@@ -109,22 +145,27 @@ export type Props = React.ComponentProps<typeof Surface> & {
   /**
    * Ellipsize Mode for the children text
    */
-  ellipsizeMode?: EllipsizeProp;
+  ellipsizeMode?: TextProps['ellipsizeMode'];
+  /**
+   * Specifies the largest possible scale a text font can reach.
+   */
+  maxFontSizeMultiplier?: number;
+  /**
+   * Reference to the chip container.
+   */
+  ref?: React.Ref<View>;
 };
 
 /**
- * Chips can be used to display entities in small blocks.
- *
- * <div class="screenshots">
- *   <figure>
- *     <img class="small" src="screenshots/chip-1.png" />
- *     <figcaption>Flat chip</figcaption>
- *   </figure>
- *   <figure>
- *     <img class="small" src="screenshots/chip-2.png" />
- *     <figcaption>Outlined chip</figcaption>
- *   </figure>
- * </div>
+ * Chips are compact elements that can represent inputs, attributes, or actions.
+ * They can have an icon or avatar on the left, and a close button icon on the right.
+ * They are typically used to:
+ * <ul>
+ *  <li>Present multiple options </li>
+ *  <li>Represent attributes active or chosen </li>
+ *  <li>Present filter options </li>
+ *  <li>Trigger actions related to primary content </li>
+ * </ul>
  *
  * ## Usage
  * ```js
@@ -145,157 +186,159 @@ const Chip = ({
   avatar,
   selected = false,
   disabled = false,
-  accessibilityLabel,
+  background,
+  'aria-label': ariaLabel,
+  role = 'button',
   closeIconAccessibilityLabel = 'Close',
+  closeIconTestID,
   onPress,
   onLongPress,
+  onPressOut,
+  onPressIn,
+  delayLongPress,
   onClose,
   closeIcon,
   textStyle,
   style,
-  theme,
+  theme: themeOverrides,
   testID,
   selectedColor,
-  showSelectedOverlay = false,
+  showSelectedCheck = true,
   ellipsizeMode,
   compact,
   elevated = false,
+  maxFontSizeMultiplier,
+  hitSlop,
   ...rest
 }: Props) => {
-  const { isV3 } = theme;
+  const theme = useInternalTheme(themeOverrides);
 
-  const { current: elevation } = React.useRef<Animated.Value>(
-    new Animated.Value(isV3 && elevated ? 1 : 0)
-  );
+  const [pressed, setPressed] = React.useState(false);
+  const elevation = elevated ? (pressed ? 2 : 1) : 0;
+
+  const hasPassedTouchHandler = hasTouchHandler({
+    onPress,
+    onLongPress,
+    onPressIn,
+    onPressOut,
+  });
 
   const isOutlined = mode === 'outlined';
 
-  const handlePressIn = () => {
-    const { scale } = theme.animation;
-    Animated.timing(elevation, {
-      toValue: isV3 ? (elevated ? 2 : 0) : 4,
-      duration: 200 * scale,
-      useNativeDriver: true,
-    }).start();
-  };
+  const handlePressIn = useLatestCallback((e: GestureResponderEvent) => {
+    onPressIn?.(e);
+    setPressed(true);
+  });
 
-  const handlePressOut = () => {
-    const { scale } = theme.animation;
-    Animated.timing(elevation, {
-      toValue: isV3 && elevated ? 1 : 0,
-      duration: 150 * scale,
-      useNativeDriver: true,
-    }).start();
-  };
+  const handlePressOut = useLatestCallback((e: GestureResponderEvent) => {
+    onPressOut?.(e);
+    setPressed(false);
+  });
 
-  const opacity = isV3 ? 0.38 : 0.26;
-  const defaultBorderRadius = isV3 ? 8 : 16;
-  const iconSize = isV3 ? 18 : 16;
+  const elevationTransitionDuration =
+    theme.motion.duration[pressed ? 'short4' : 'short3'] *
+    theme.animation.scale;
 
-  const {
-    backgroundColor: customBackgroundColor,
-    borderRadius = defaultBorderRadius,
-  } = (StyleSheet.flatten(style) || {}) as ViewStyle;
+  const opacity = 0.38;
+  const defaultBorderRadius = theme.shapes.corner.small;
+  const iconSize = 18;
+
+  const borderRadius = defaultBorderRadius;
 
   const {
     borderColor,
     textColor,
     iconColor,
-    underlayColor,
+    contentOpacity,
     selectedBackgroundColor,
     backgroundColor,
   } = getChipColors({
     isOutlined,
     theme,
     selectedColor,
-    showSelectedOverlay,
-    customBackgroundColor,
     disabled,
   });
 
-  const accessibilityState: AccessibilityState = {
-    selected,
-    disabled,
-  };
+  const multiplier = compact ? 1.5 : 2;
 
-  const elevationStyle = isV3 || Platform.OS === 'android' ? elevation : 0;
-  const multiplier = isV3 ? (compact ? 1.5 : 2) : 1;
   const labelSpacings = {
     marginRight: onClose ? 0 : 8 * multiplier,
-    marginLeft: avatar || icon || selected ? 4 * multiplier : 8 * multiplier,
+    marginLeft:
+      avatar || icon || (selected && showSelectedCheck)
+        ? 4 * multiplier
+        : 8 * multiplier,
   };
+
   const contentSpacings = {
-    paddingRight: isV3 ? (onClose ? 34 : 0) : onClose ? 32 : 4,
+    paddingRight: onClose ? 34 : 0,
   };
+
   const labelTextStyle = {
     color: textColor,
-    ...(isV3 ? theme.fonts.labelLarge : theme.fonts.regular),
+    ...theme.fonts.labelLarge,
   };
+
   return (
     <Surface
-      style={
-        [
-          styles.container,
-          isV3 &&
-            (isOutlined ? styles.md3OutlineContainer : styles.md3FlatContainer),
-          !theme.isV3 && {
-            elevation: elevationStyle,
-          },
-          {
-            backgroundColor: selected
-              ? selectedBackgroundColor
-              : backgroundColor,
-            borderColor,
-            borderRadius,
-          },
-          style,
-        ] as StyleProp<ViewStyle>
-      }
-      {...(theme.isV3 && { elevation: elevationStyle })}
+      backgroundColor={selected ? selectedBackgroundColor : backgroundColor}
+      borderRadius={borderRadius}
+      style={[styles.container, styles.md3Container, { borderColor }, style]}
+      elevation={elevation}
+      transitionDuration={elevationTransitionDuration}
       {...rest}
+      theme={theme}
     >
       <TouchableRipple
         borderless
+        background={background}
         style={[{ borderRadius }, styles.touchable]}
         onPress={onPress}
         onLongPress={onLongPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        underlayColor={underlayColor}
+        onPressIn={hasPassedTouchHandler ? handlePressIn : undefined}
+        onPressOut={hasPassedTouchHandler ? handlePressOut : undefined}
+        delayLongPress={delayLongPress}
         disabled={disabled}
-        accessibilityLabel={accessibilityLabel}
-        accessibilityRole="button"
-        accessibilityState={accessibilityState}
+        aria-label={ariaLabel}
+        role={role}
+        aria-selected={selected}
+        aria-disabled={disabled}
         testID={testID}
+        theme={theme}
+        hitSlop={hitSlop}
       >
         <View
-          style={[styles.content, isV3 && styles.md3Content, contentSpacings]}
+          style={[
+            styles.content,
+            styles.md3Content,
+            { opacity: contentOpacity },
+            contentSpacings,
+          ]}
         >
           {avatar && !icon ? (
             <View
               style={[
                 styles.avatarWrapper,
-                isV3 && styles.md3AvatarWrapper,
+                styles.md3AvatarWrapper,
                 disabled && { opacity },
               ]}
             >
-              {React.isValidElement(avatar)
+              {React.isValidElement<ChipAvatarProps>(avatar)
                 ? React.cloneElement(avatar, {
                     style: [styles.avatar, avatar.props.style],
                   })
                 : avatar}
             </View>
           ) : null}
-          {icon || selected ? (
+          {icon || (selected && showSelectedCheck) ? (
             <View
               style={[
                 styles.icon,
-                isV3 && styles.md3Icon,
+                styles.md3Icon,
                 avatar
                   ? [
                       styles.avatar,
                       styles.avatarSelected,
-                      isV3 && selected && styles.md3SelectedIcon,
+                      selected && styles.md3SelectedIcon,
                     ]
                   : null,
               ]}
@@ -306,11 +349,12 @@ const Chip = ({
                   color={
                     avatar
                       ? white
-                      : !disabled && theme.isV3
-                      ? theme.colors.primary
-                      : iconColor
+                      : !disabled
+                        ? theme.colors.primary
+                        : iconColor
                   }
                   size={18}
+                  theme={theme}
                 />
               ) : (
                 <MaterialCommunityIcon
@@ -327,12 +371,13 @@ const Chip = ({
             selectable={false}
             numberOfLines={1}
             style={[
-              isV3 ? styles.md3LabelText : styles.labelText,
+              styles.md3LabelText,
               labelTextStyle,
               labelSpacings,
               textStyle,
             ]}
             ellipsizeMode={ellipsizeMode}
+            maxFontSizeMultiplier={maxFontSizeMultiplier}
           >
             {children}
           </Text>
@@ -340,30 +385,26 @@ const Chip = ({
       </TouchableRipple>
       {onClose ? (
         <View style={styles.closeButtonStyle}>
-          <TouchableWithoutFeedback
+          <Pressable
             onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel={closeIconAccessibilityLabel}
+            disabled={disabled}
+            role="button"
+            aria-label={closeIconAccessibilityLabel}
+            testID={closeIconTestID}
           >
-            <View
-              style={[
-                styles.icon,
-                styles.closeIcon,
-                isV3 && styles.md3CloseIcon,
-              ]}
-            >
+            <View style={[styles.icon, styles.closeIcon, styles.md3CloseIcon]}>
               {closeIcon ? (
                 <Icon source={closeIcon} color={iconColor} size={iconSize} />
               ) : (
                 <MaterialCommunityIcon
-                  name={isV3 ? 'close' : 'close-circle'}
+                  name="close"
                   size={iconSize}
                   color={iconColor}
                   direction="ltr"
                 />
               )}
             </View>
-          </TouchableWithoutFeedback>
+          </Pressable>
         </View>
       ) : null}
     </Surface>
@@ -376,18 +417,14 @@ const styles = StyleSheet.create({
     borderStyle: 'solid',
     flexDirection: Platform.select({ default: 'column', web: 'row' }),
   },
-  md3OutlineContainer: {
+  md3Container: {
     borderWidth: 1,
-  },
-  md3FlatContainer: {
-    borderWidth: 0,
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 4,
     position: 'relative',
-    flexGrow: 1,
   },
   md3Content: {
     paddingLeft: 0,
@@ -406,12 +443,6 @@ const styles = StyleSheet.create({
   md3CloseIcon: {
     marginRight: 8,
     padding: 0,
-  },
-  labelText: {
-    minHeight: 24,
-    lineHeight: 24,
-    textAlignVertical: 'center',
-    marginVertical: 4,
   },
   md3LabelText: {
     textAlignVertical: 'center',
@@ -432,6 +463,7 @@ const styles = StyleSheet.create({
   md3SelectedIcon: {
     paddingLeft: 4,
   },
+  // eslint-disable-next-line react-native/no-color-literals
   avatarSelected: {
     position: 'absolute',
     top: 4,
@@ -446,8 +478,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   touchable: {
-    flexGrow: 1,
+    width: '100%',
   },
 });
 
-export default withInternalTheme(Chip);
+export default Chip;

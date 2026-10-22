@@ -1,183 +1,117 @@
-import color from 'color';
+import type { ColorValue } from 'react-native';
 
-import type { InternalTheme } from '../../types';
+import { CheckboxTokens } from './tokens';
+import { tokens } from '../../theme/tokens';
+import type { InternalTheme } from '../../theme/types';
 
-const getAndroidCheckedColor = ({
-  theme,
-  customColor,
-}: {
+// MD3 Checkbox spec: https://m3.material.io/components/checkbox/specs
+
+const stateOpacity = tokens.md.sys.state.opacity;
+
+type SelectionState = {
   theme: InternalTheme;
-  customColor?: string;
-}) => {
+  selected: boolean;
+  disabled?: boolean;
+  error?: boolean;
+  customColor?: ColorValue;
+  customUncheckedColor?: ColorValue;
+};
+
+type SelectionVisualState = {
+  containerColor: ColorValue;
+  outlineColor: ColorValue;
+  containerOpacity: number;
+  iconColor: ColorValue;
+};
+
+const getContainerColor = ({
+  theme,
+  disabled,
+  error,
+  customColor,
+}: SelectionState): ColorValue => {
+  if (disabled) {
+    return theme.colors[CheckboxTokens.disabledContainerColor];
+  }
   if (customColor) {
     return customColor;
   }
-
-  if (theme.isV3) {
-    return theme.colors.primary;
+  if (error) {
+    return theme.colors[CheckboxTokens.errorContainerColor];
   }
-
-  return theme.colors.accent;
+  return theme.colors[CheckboxTokens.containerColor];
 };
 
-const getAndroidUncheckedColor = ({
+const getOutlineColor = ({
   theme,
+  disabled,
+  error,
   customUncheckedColor,
-}: {
-  theme: InternalTheme;
-  customUncheckedColor?: string;
-}) => {
+}: SelectionState): ColorValue => {
+  if (disabled) {
+    return theme.colors[CheckboxTokens.disabledOutlineColor];
+  }
   if (customUncheckedColor) {
     return customUncheckedColor;
   }
-
-  if (theme.isV3) {
-    return theme.colors.onSurfaceVariant;
+  if (error) {
+    return theme.colors[CheckboxTokens.errorOutlineColor];
   }
-
-  if (theme.dark) {
-    return color(theme.colors.text).alpha(0.7).rgb().string();
-  }
-
-  return color(theme.colors.text).alpha(0.54).rgb().string();
+  return theme.colors[CheckboxTokens.outlineColor];
 };
 
-const getAndroidRippleColor = ({
+const getIconColor = ({
   theme,
-  checkedColor,
   disabled,
-}: {
-  theme: InternalTheme;
-  checkedColor: string;
-  disabled?: boolean;
-}) => {
+  error,
+}: SelectionState): ColorValue => {
   if (disabled) {
-    if (theme.isV3) {
-      return color(theme.colors.onSurface).alpha(0.16).rgb().string();
-    }
-    return color(theme.colors.text).alpha(0.16).rgb().string();
+    return theme.colors[CheckboxTokens.disabledIconColor];
   }
-
-  return color(checkedColor).fade(0.32).rgb().string();
+  if (error) {
+    return theme.colors[CheckboxTokens.errorIconColor];
+  }
+  return theme.colors[CheckboxTokens.iconColor];
 };
 
-const getAndroidControlColor = ({
+/**
+ * Resolve the static (non-interactive) colors + opacity for the Checkbox
+ * renderer. Hover / pressed / focused visuals are owned by `TouchableRipple`
+ * and the focus-ring outline, so they don't appear here.
+ */
+export const getSelectionVisualState = ({
   theme,
-  checked,
+  selected,
   disabled,
-  checkedColor,
-  uncheckedColor,
-}: {
-  theme: InternalTheme;
-  checked: boolean;
-  checkedColor: string;
-  uncheckedColor: string;
-  disabled?: boolean;
-}) => {
-  if (disabled) {
-    if (theme.isV3) {
-      return theme.colors.onSurfaceDisabled;
-    }
-    return theme.colors.text;
-  }
-
-  if (checked) {
-    return checkedColor;
-  }
-  return uncheckedColor;
-};
-
-export const getAndroidSelectionControlColor = ({
-  theme,
-  disabled,
-  checked,
+  error,
   customColor,
   customUncheckedColor,
-}: {
-  theme: InternalTheme;
-  checked: boolean;
-  disabled?: boolean;
-  customColor?: string;
-  customUncheckedColor?: string;
-}) => {
-  const checkedColor = getAndroidCheckedColor({ theme, customColor });
-  const uncheckedColor = getAndroidUncheckedColor({
-    theme,
-    customUncheckedColor,
-  });
+}: SelectionState): SelectionVisualState => {
   return {
-    rippleColor: getAndroidRippleColor({ theme, checkedColor, disabled }),
-    selectionControlColor: getAndroidControlColor({
+    containerColor: getContainerColor({
       theme,
+      selected,
       disabled,
-      checked,
-      checkedColor,
-      uncheckedColor,
+      error,
+      customColor,
+      customUncheckedColor,
     }),
-  };
-};
-
-const getIOSCheckedColor = ({
-  theme,
-  disabled,
-  customColor,
-}: {
-  theme: InternalTheme;
-  customColor?: string;
-  disabled?: boolean;
-}) => {
-  if (disabled) {
-    if (theme.isV3) {
-      return theme.colors.onSurfaceDisabled;
-    }
-    return theme.colors.disabled;
-  }
-
-  if (customColor) {
-    return customColor;
-  }
-
-  if (theme.isV3) {
-    return theme.colors.primary;
-  }
-
-  return theme.colors.accent;
-};
-
-const getIOSRippleColor = ({
-  theme,
-  checkedColor,
-  disabled,
-}: {
-  theme: InternalTheme;
-  checkedColor: string;
-  disabled?: boolean;
-}) => {
-  if (disabled) {
-    if (theme.isV3) {
-      return color(theme.colors.onSurface).alpha(0.16).rgb().string();
-    }
-    return color(theme.colors.text).alpha(0.16).rgb().string();
-  }
-  return color(checkedColor).fade(0.32).rgb().string();
-};
-
-export const getSelectionControlIOSColor = ({
-  theme,
-  disabled,
-  customColor,
-}: {
-  theme: InternalTheme;
-  disabled?: boolean;
-  customColor?: string;
-}) => {
-  const checkedColor = getIOSCheckedColor({ theme, disabled, customColor });
-  return {
-    checkedColor,
-    rippleColor: getIOSRippleColor({
+    outlineColor: getOutlineColor({
       theme,
-      checkedColor,
+      selected,
       disabled,
+      error,
+      customColor,
+      customUncheckedColor,
+    }),
+    containerOpacity: disabled ? stateOpacity.disabled : stateOpacity.enabled,
+    iconColor: getIconColor({
+      theme,
+      selected,
+      disabled,
+      error,
+      customColor,
+      customUncheckedColor,
     }),
   };
 };

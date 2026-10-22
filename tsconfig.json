@@ -1,18 +1,22 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
+    "rootDir": ".",
     "paths": {
       "react-native-paper": ["./src/index"]
     },
+    "noEmit": true,
+    "customConditions": ["react-native-paper-source"],
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "importsNotUsedAsValues": "error",
-    "jsx": "react",
+    "jsx": "react-jsx",
     "lib": ["esnext", "dom"],
-    "module": "esnext",
-    "moduleResolution": "node",
+    "moduleSuffixes": [".ios", ".native", ".android", ""],
+    "module": "preserve",
+    "moduleResolution": "bundler",
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,
     "noImplicitUseStrict": false,
@@ -20,9 +24,23 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "resolveJsonModule": true,
+    "resolvePackageJsonImports": false,
     "skipLibCheck": true,
     "strict": true,
-    "target": "esnext"
+    "target": "esnext",
+    "types": ["node"],
+    "verbatimModuleSyntax": true
   },
-  "exclude": ["lib/**/*"]
+  "files": [],
+  "references": [
+    {
+      "path": "./tsconfig.source.json"
+    },
+    {
+      "path": "./docs"
+    },
+    {
+      "path": "./example"
+    }
+  ]
 }

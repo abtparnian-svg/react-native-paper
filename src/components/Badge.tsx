@@ -1,20 +1,18 @@
-import * as React from 'react';
-import {
-  Animated,
-  StyleProp,
-  StyleSheet,
-  TextStyle,
-  useWindowDimensions,
-} from 'react-native';
+import type { StyleProp, TextProps, TextStyle } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import { withInternalTheme } from '../core/theming';
-import { black, white } from '../styles/themes/v2/colors';
-import type { InternalTheme } from '../types';
-import getContrastingColor from '../utils/getContrastingColor';
+import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 
-const defaultSize = 20;
+import { useInternalTheme } from '../core/theming';
+import { cornerFull } from '../theme/tokens/sys/shape';
+import type { ThemeProp } from '../theme/types';
 
-export type Props = React.ComponentProps<typeof Animated.Text> & {
+const SMALL_SIZE = 6;
+const LARGE_SIZE = 16;
+const MAX_LARGE_WIDTH = 36;
+const LARGE_PADDING = 4;
+
+export type Props = Omit<TextProps, 'style'> & {
   /**
    * Whether the badge is visible
    */
@@ -23,32 +21,20 @@ export type Props = React.ComponentProps<typeof Animated.Text> & {
    * Content of the `Badge`.
    */
   children?: string | number;
-  /**
-   * Size of the `Badge`.
-   */
-  size?: number;
-  style?: StyleProp<TextStyle>;
-  ref?: React.RefObject<typeof Animated.Text>;
+  style?: StyleProp<AnimatedStyle<TextStyle>>;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
 };
 
 /**
  * Badges are small status descriptors for UI elements.
  * A badge consists of a small circle, typically containing a number or other short set of characters, that appears in proximity to another object.
  *
- * <div class="screenshots">
- *   <figure>
- *     <img class="small" src="screenshots/badge-1.png" />
- *     <figcaption>Badge with content</figcaption>
- *   </figure>
- *   <figure>
- *     <img class="small" src="screenshots/badge-2.png" />
- *     <figcaption>Badge without content</figcaption>
- *   </figure>
- * </div>
+ * The badge is styled differently based on whether `children` is passed:
+ * - Small dot when it doesn't have `children`
+ * - Larger pill when it has `children`
  *
  * ## Usage
  * ```js
@@ -64,70 +50,52 @@ export type Props = React.ComponentProps<typeof Animated.Text> & {
  */
 const Badge = ({
   children,
-  size = defaultSize,
   style,
-  theme,
+  theme: themeOverrides,
   visible = true,
   ...rest
 }: Props) => {
-  const { current: opacity } = React.useRef<Animated.Value>(
-    new Animated.Value(visible ? 1 : 0)
-  );
-  const { fontScale } = useWindowDimensions();
-
-  const isFirstRendering = React.useRef<boolean>(true);
+  const theme = useInternalTheme(themeOverrides);
 
   const {
     animation: { scale },
   } = theme;
 
-  React.useEffect(() => {
-    // Do not run animation on very first rendering
-    if (isFirstRendering.current) {
-      isFirstRendering.current = false;
-      return;
-    }
+  const textColor = theme.colors.onError;
 
-    Animated.timing(opacity, {
-      toValue: visible ? 1 : 0,
-      duration: 150 * scale,
-      useNativeDriver: true,
-    }).start();
-  }, [visible, opacity, scale]);
+  const isLarge = children != null;
+  const badgeSize = isLarge ? LARGE_SIZE : SMALL_SIZE;
+  const labelFont = theme.fonts.labelSmall;
 
-  const {
-    backgroundColor = theme.isV3
-      ? theme.colors.error
-      : theme.colors?.notification,
-    ...restStyle
-  } = (StyleSheet.flatten(style) || {}) as TextStyle;
-
-  const textColor = theme.isV3
-    ? theme.colors.onError
-    : getContrastingColor(backgroundColor, white, black);
-
-  const borderRadius = size / 2;
-
-  const paddingHorizontal = theme.isV3 ? 3 : 4;
+  const transitionStyle = {
+    opacity: visible ? 1 : 0,
+    transitionDuration: 150 * scale,
+    transitionProperty: 'opacity',
+  };
 
   return (
     <Animated.Text
       numberOfLines={1}
+      allowFontScaling={false}
       style={[
-        {
-          opacity,
-          backgroundColor,
-          color: textColor,
-          fontSize: size * 0.5,
-          ...(!theme.isV3 && theme.fonts.regular),
-          lineHeight: size / fontScale,
-          height: size,
-          minWidth: size,
-          borderRadius,
-          paddingHorizontal,
-        },
         styles.container,
-        restStyle,
+        transitionStyle,
+        {
+          backgroundColor: theme.colors.error,
+          color: textColor,
+          borderRadius: cornerFull,
+          height: badgeSize,
+          minWidth: badgeSize,
+        },
+        isLarge && [
+          labelFont,
+          {
+            lineHeight: LARGE_SIZE,
+            maxWidth: MAX_LARGE_WIDTH,
+            paddingHorizontal: LARGE_PADDING,
+          },
+        ],
+        style,
       ]}
       {...rest}
     >
@@ -136,7 +104,7 @@ const Badge = ({
   );
 };
 
-export default withInternalTheme(Badge);
+export default Badge;
 
 const styles = StyleSheet.create({
   container: {

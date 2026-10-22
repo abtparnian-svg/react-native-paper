@@ -8,29 +8,14 @@ import {
   View,
 } from 'react-native';
 
-import type { StackNavigationProp } from '@react-navigation/stack';
+import { useNavigation } from '@react-navigation/native';
 import { Appbar, BottomNavigation, Menu } from 'react-native-paper';
+import type { BottomNavigationRoute } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useExampleTheme } from '..';
 import ScreenWrapper from '../ScreenWrapper';
 
-type RoutesState = Array<{
-  key: string;
-  title: string;
-  focusedIcon: string;
-  unfocusedIcon?: string;
-  color?: string;
-  badge?: boolean;
-  getAccessibilityLabel?: string;
-  getTestID?: string;
-}>;
-
 type Route = { route: { key: string } };
-
-type Props = {
-  navigation: StackNavigationProp<{}>;
-};
 
 const MORE_ICON = Platform.OS === 'ios' ? 'dots-horizontal' : 'dots-vertical';
 
@@ -45,6 +30,7 @@ const PhotoGallery = ({ route }: Route) => {
         <View key={uri} style={styles.item}>
           <Image
             source={{ uri }}
+            resizeMode="cover"
             style={styles.photo}
             accessibilityIgnoresInvertColors
           />
@@ -54,8 +40,9 @@ const PhotoGallery = ({ route }: Route) => {
   );
 };
 
-const BottomNavigationExample = ({ navigation }: Props) => {
-  const { isV3 } = useExampleTheme();
+const BottomNavigationExample = () => {
+  const navigation = useNavigation('BottomNavigation');
+
   const insets = useSafeAreaInsets();
   const [index, setIndex] = React.useState(0);
   const [menuVisible, setMenuVisible] = React.useState(false);
@@ -64,39 +51,30 @@ const BottomNavigationExample = ({ navigation }: Props) => {
       React.ComponentProps<typeof BottomNavigation>['sceneAnimationType']
     >();
 
-  const [routes] = React.useState<RoutesState>([
+  const [routes] = React.useState<BottomNavigationRoute[]>([
     {
       key: 'album',
       title: 'Album',
       focusedIcon: 'image-album',
-      ...(!isV3 && { color: '#6200ee' }),
     },
     {
       key: 'library',
       title: 'Library',
       focusedIcon: 'inbox',
+      unfocusedIcon: 'inbox-outline',
       badge: true,
-      ...(isV3
-        ? { unfocusedIcon: 'inbox-outline' }
-        : {
-            color: '#2962ff',
-          }),
     },
     {
       key: 'favorites',
       title: 'Favorites',
       focusedIcon: 'heart',
-      ...(isV3
-        ? { unfocusedIcon: 'heart-outline' }
-        : {
-            color: '#00796b',
-          }),
+      unfocusedIcon: 'heart-outline',
     },
     {
       key: 'purchased',
       title: 'Purchased',
       focusedIcon: 'shopping',
-      ...(isV3 ? { unfocusedIcon: 'shopping-outline' } : { color: '#c51162' }),
+      unfocusedIcon: 'shopping-outline',
     },
   ]);
 
@@ -118,7 +96,6 @@ const BottomNavigationExample = ({ navigation }: Props) => {
             <Appbar.Action
               icon={MORE_ICON}
               onPress={() => setMenuVisible(true)}
-              {...(!isV3 && { color: 'white' })}
             />
           }
         >
@@ -162,6 +139,7 @@ const BottomNavigationExample = ({ navigation }: Props) => {
         sceneAnimationEnabled={sceneAnimation !== undefined}
         sceneAnimationType={sceneAnimation}
         sceneAnimationEasing={Easing.ease}
+        getLazy={({ route }) => route.key !== 'album'}
       />
     </View>
   );
@@ -176,6 +154,7 @@ const styles = StyleSheet.create({
     web: {
       content: {
         // there is no 'grid' type in RN :(
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
         display: 'grid' as 'none',
         gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
         gridRowGap: '8px',
@@ -202,7 +181,6 @@ const styles = StyleSheet.create({
   }),
   photo: {
     flex: 1,
-    resizeMode: 'cover',
   },
   screen: {
     flex: 1,

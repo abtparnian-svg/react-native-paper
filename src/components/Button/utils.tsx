@@ -1,9 +1,11 @@
-import { StyleSheet } from 'react-native';
+import type { ColorValue, ViewStyle } from 'react-native';
 
-import color from 'color';
+import { black, white } from '../../theme/colors';
+import { tokens } from '../../theme/tokens';
+import type { InternalTheme } from '../../theme/types';
+import { splitStyles } from '../../utils/splitStyles';
 
-import { black, white } from '../../styles/themes/v2/colors';
-import type { InternalTheme } from '../../types';
+const stateOpacity = tokens.md.sys.state.opacity;
 
 export type ButtonMode =
   | 'text'
@@ -23,7 +25,7 @@ const isDark = ({
   backgroundColor,
 }: {
   dark?: boolean;
-  backgroundColor?: string;
+  backgroundColor?: ColorValue;
 }) => {
   if (typeof dark === 'boolean') {
     return dark;
@@ -31,10 +33,6 @@ const isDark = ({
 
   if (backgroundColor === 'transparent') {
     return false;
-  }
-
-  if (backgroundColor !== 'transparent') {
-    return !color(backgroundColor).isLight();
   }
 
   return false;
@@ -46,43 +44,30 @@ const getButtonBackgroundColor = ({
   disabled,
   customButtonColor,
 }: BaseProps & {
-  customButtonColor?: string;
+  customButtonColor?: ColorValue;
 }) => {
+  const { colors } = theme;
   if (customButtonColor && !disabled) {
     return customButtonColor;
   }
 
-  if (theme.isV3) {
-    if (disabled) {
-      if (isMode('outlined') || isMode('text')) {
-        return 'transparent';
-      }
-
-      return theme.colors.surfaceDisabled;
+  if (disabled) {
+    if (isMode('outlined') || isMode('text')) {
+      return 'transparent';
     }
+    return colors.onSurface;
+  }
 
-    if (isMode('elevated')) {
-      return theme.colors.elevation.level1;
-    }
-
-    if (isMode('contained')) {
-      return theme.colors.primary;
-    }
-
-    if (isMode('contained-tonal')) {
-      return theme.colors.secondaryContainer;
-    }
+  if (isMode('elevated')) {
+    return colors.surfaceContainerLow;
   }
 
   if (isMode('contained')) {
-    if (disabled) {
-      return color(theme.dark ? white : black)
-        .alpha(0.12)
-        .rgb()
-        .string();
-    }
+    return colors.primary;
+  }
 
-    return theme.colors.primary;
+  if (isMode('contained-tonal')) {
+    return colors.secondaryContainer;
   }
 
   return 'transparent';
@@ -96,89 +81,55 @@ const getButtonTextColor = ({
   backgroundColor,
   dark,
 }: BaseProps & {
-  customTextColor?: string;
-  backgroundColor: string;
+  customTextColor?: ColorValue;
+  backgroundColor: ColorValue;
   dark?: boolean;
 }) => {
+  const { colors } = theme;
   if (customTextColor && !disabled) {
     return customTextColor;
   }
 
-  if (theme.isV3) {
-    if (disabled) {
-      return theme.colors.onSurfaceDisabled;
-    }
+  if (disabled) {
+    return theme.colors.onSurface;
+  }
 
-    if (typeof dark === 'boolean') {
-      if (
-        isMode('contained') ||
-        isMode('contained-tonal') ||
-        isMode('elevated')
-      ) {
-        return isDark({ dark, backgroundColor }) ? white : black;
-      }
-    }
-
-    if (isMode('outlined') || isMode('text') || isMode('elevated')) {
-      return theme.colors.primary;
-    }
-
-    if (isMode('contained')) {
-      return theme.colors.onPrimary;
-    }
-
-    if (isMode('contained-tonal')) {
-      return theme.colors.onSecondaryContainer;
+  if (typeof dark === 'boolean') {
+    if (
+      isMode('contained') ||
+      isMode('contained-tonal') ||
+      isMode('elevated')
+    ) {
+      return isDark({ dark, backgroundColor }) ? white : black;
     }
   }
 
-  if (disabled) {
-    return color(theme.dark ? white : black)
-      .alpha(0.32)
-      .rgb()
-      .string();
+  if (isMode('outlined') || isMode('text') || isMode('elevated')) {
+    return colors.primary;
   }
 
   if (isMode('contained')) {
-    return isDark({ dark, backgroundColor }) ? white : black;
+    return colors.onPrimary;
   }
 
-  return theme.colors.primary;
+  if (isMode('contained-tonal')) {
+    return colors.onSecondaryContainer;
+  }
+
+  return colors.primary;
 };
 
-const getButtonBorderColor = ({ isMode, disabled, theme }: BaseProps) => {
-  if (theme.isV3) {
-    if (disabled && isMode('outlined')) {
-      return theme.colors.surfaceDisabled;
-    }
-
-    if (isMode('outlined')) {
-      return theme.colors.outline;
-    }
-  }
-
+const getButtonBorderColor = ({ isMode, theme }: BaseProps) => {
   if (isMode('outlined')) {
-    return color(theme.dark ? white : black)
-      .alpha(0.29)
-      .rgb()
-      .string();
+    return theme.colors.outlineVariant;
   }
 
   return 'transparent';
 };
 
-const getButtonBorderWidth = ({
-  isMode,
-  theme,
-}: Omit<BaseProps, 'disabled'>) => {
-  if (theme.isV3) {
-    if (isMode('outlined')) {
-      return 1;
-    }
-  }
-
+const getButtonBorderWidth = ({ isMode }: Omit<BaseProps, 'disabled'>) => {
   if (isMode('outlined')) {
-    return StyleSheet.hairlineWidth;
+    return 1;
   }
 
   return 0;
@@ -194,8 +145,8 @@ export const getButtonColors = ({
 }: {
   theme: InternalTheme;
   mode: ButtonMode;
-  customButtonColor?: string;
-  customTextColor?: string;
+  customButtonColor?: ColorValue;
+  customTextColor?: ColorValue;
   disabled?: boolean;
   dark?: boolean;
 }) => {
@@ -219,14 +170,64 @@ export const getButtonColors = ({
     dark,
   });
 
-  const borderColor = getButtonBorderColor({ isMode, theme, disabled });
+  const borderColor = getButtonBorderColor({ isMode, theme });
 
   const borderWidth = getButtonBorderWidth({ isMode, theme });
+
+  const textOpacity = disabled ? stateOpacity.disabled : stateOpacity.enabled;
+
+  const backgroundOpacity =
+    disabled && !isMode('outlined') && !isMode('text')
+      ? stateOpacity.pressed
+      : stateOpacity.enabled;
 
   return {
     backgroundColor,
     borderColor,
     textColor,
+    textOpacity,
     borderWidth,
+    backgroundOpacity,
   };
+};
+
+type ViewStyleBorderRadiusStyles = Partial<
+  Pick<
+    ViewStyle,
+    | 'borderBottomEndRadius'
+    | 'borderBottomLeftRadius'
+    | 'borderBottomRightRadius'
+    | 'borderBottomStartRadius'
+    | 'borderTopEndRadius'
+    | 'borderTopLeftRadius'
+    | 'borderTopRightRadius'
+    | 'borderTopStartRadius'
+    | 'borderRadius'
+  >
+>;
+export const getButtonTouchableRippleStyle = (
+  style?: ViewStyle,
+  borderWidth: number = 0
+): ViewStyleBorderRadiusStyles => {
+  if (!style) return {};
+  const touchableRippleStyle: ViewStyleBorderRadiusStyles = {};
+
+  const [, borderRadiusStyles] = splitStyles(
+    style,
+    (style) => style.startsWith('border') && style.endsWith('Radius')
+  );
+
+  const borderRadiusKeys =
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    Object.keys(borderRadiusStyles) as Array<keyof ViewStyleBorderRadiusStyles>;
+
+  borderRadiusKeys.forEach((key) => {
+    const value = style[key];
+    if (typeof value === 'number') {
+      // Only subtract borderWidth if value is greater than 0
+      const radius = value > 0 ? value - borderWidth : 0;
+      touchableRippleStyle[key] = radius;
+    }
+  });
+  return touchableRippleStyle;
 };

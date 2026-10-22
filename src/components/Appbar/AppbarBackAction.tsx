@@ -1,18 +1,23 @@
 import * as React from 'react';
-import type { StyleProp, ViewStyle } from 'react-native';
+import type {
+  ColorValue,
+  GestureResponderEvent,
+  StyleProp,
+  View,
+  ViewStyle,
+} from 'react-native';
 
-import type { $Omit } from './../../types';
+import type { AnimatedStyle } from 'react-native-reanimated';
+
 import AppbarAction from './AppbarAction';
+import type { Props as AppbarActionProps } from './AppbarAction';
 import AppbarBackIcon from './AppbarBackIcon';
 
-export type Props = $Omit<
-  React.ComponentPropsWithoutRef<typeof AppbarAction>,
-  'icon'
-> & {
+export type Props = Omit<React.PropsWithoutRef<AppbarActionProps>, 'icon'> & {
   /**
    *  Custom color for back icon.
    */
-  color?: string;
+  color?: ColorValue;
   /**
    * Optional icon size.
    */
@@ -24,42 +29,43 @@ export type Props = $Omit<
   /**
    * Accessibility label for the button. This is read by the screen reader when the user taps the button.
    */
-  accessibilityLabel?: string;
+  'aria-label'?: string;
   /**
    * Function to execute on press.
    */
-  onPress?: () => void;
-  style?: StyleProp<ViewStyle>;
+  onPress?: (e: GestureResponderEvent) => void;
+  style?: StyleProp<AnimatedStyle<ViewStyle>>;
+  ref?: React.Ref<View>;
 };
 
 /**
  * A component used to display a back button in the appbar.
- *
- * <div class="screenshots">
- *   <img class="small" src="screenshots/appbar-backaction-android.png" />
- * </div>
  *
  * ## Usage
  * ```js
  * import * as React from 'react';
  * import { Appbar } from 'react-native-paper';
  *
- *
  * const MyComponent = () => (
- *     <Appbar.Header>
- *       <Appbar.BackAction onPress={() => {}} />
- *     </Appbar.Header>
+ *   <Appbar.Header>
+ *     <Appbar.BackAction onPress={() => {}} />
+ *   </Appbar.Header>
  * );
  *
  * export default MyComponent;
  * ```
  */
-const AppbarBackAction = ({ accessibilityLabel = 'Back', ...rest }: Props) => (
+const AppbarBackAction = ({
+  'aria-label': ariaLabel = 'Back',
+  ref,
+  ...rest
+}: Props) => (
   <AppbarAction
-    accessibilityLabel={accessibilityLabel}
+    aria-label={ariaLabel}
     {...rest}
     icon={AppbarBackIcon}
     isLeading
+    ref={ref}
   />
 );
 

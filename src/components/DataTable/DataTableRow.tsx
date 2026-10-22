@@ -1,20 +1,21 @@
 import * as React from 'react';
-import {
+import { StyleSheet, View } from 'react-native';
+import type {
+  GestureResponderEvent,
   StyleProp,
-  StyleSheet,
-  View,
   ViewProps,
   ViewStyle,
 } from 'react-native';
 
-import color from 'color';
-
-import { withInternalTheme } from '../../core/theming';
-import { black, white } from '../../styles/themes/v2/colors';
-import type { $RemoveChildren, InternalTheme } from '../../types';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
 import TouchableRipple from '../TouchableRipple/TouchableRipple';
+import type { Props as TouchableRippleProps } from '../TouchableRipple/TouchableRipple';
 
-export type Props = $RemoveChildren<typeof TouchableRipple> & {
+export type Props = Omit<
+  React.PropsWithoutRef<TouchableRippleProps>,
+  'children'
+> & {
   /**
    * Content of the `DataTableRow`.
    */
@@ -22,12 +23,12 @@ export type Props = $RemoveChildren<typeof TouchableRipple> & {
   /**
    * Function to execute on press.
    */
-  onPress?: () => void;
+  onPress?: (e: GestureResponderEvent) => void;
   style?: StyleProp<ViewStyle>;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
   /**
    * `pointerEvents` passed to the `View` container, which is wrapping children within `TouchableRipple`.
    */
@@ -37,45 +38,35 @@ export type Props = $RemoveChildren<typeof TouchableRipple> & {
 /**
  * A component to show a single row inside of a table.
  *
- * <div class="screenshots">
- *   <figure>
- *     <img class="medium" src="screenshots/data-table-row-cell.png" />
- *   </figure>
- * </div>
- *
- *
  * ## Usage
  * ```js
  * import * as React from 'react';
  * import { DataTable } from 'react-native-paper';
  *
  * const MyComponent = () => (
- *      <DataTable.Row>
- *        <DataTable.Cell numeric>1</DataTable.Cell>
- *        <DataTable.Cell numeric>2</DataTable.Cell>
- *        <DataTable.Cell numeric>3</DataTable.Cell>
- *        <DataTable.Cell numeric>4</DataTable.Cell>
- *      </DataTable.Row>
+ *  <DataTable.Row>
+ *    <DataTable.Cell numeric>1</DataTable.Cell>
+ *    <DataTable.Cell numeric>2</DataTable.Cell>
+ *    <DataTable.Cell numeric>3</DataTable.Cell>
+ *    <DataTable.Cell numeric>4</DataTable.Cell>
+ *  </DataTable.Row>
  * );
  *
  * export default MyComponent;
  * ```
+ *
+ * @extends TouchableRipple props https://callstack.github.io/react-native-paper/docs/components/TouchableRipple
  */
-
 const DataTableRow = ({
   onPress,
   style,
-  theme,
   children,
   pointerEvents,
+  theme: themeOverrides,
   ...rest
 }: Props) => {
-  const borderBottomColor = theme.isV3
-    ? theme.colors.surfaceVariant
-    : color(theme.dark ? white : black)
-        .alpha(0.12)
-        .rgb()
-        .string();
+  const theme = useInternalTheme(themeOverrides);
+  const borderBottomColor = theme.colors.surfaceVariant;
 
   return (
     <TouchableRipple
@@ -105,7 +96,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export default withInternalTheme(DataTableRow);
+export default DataTableRow;
 
 // @component-docs ignore-next-line
 export { DataTableRow };

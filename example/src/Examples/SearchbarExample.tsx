@@ -1,72 +1,229 @@
 import * as React from 'react';
-import { StyleSheet } from 'react-native';
+import { Keyboard, StyleSheet } from 'react-native';
 
-import type { StackNavigationProp } from '@react-navigation/stack';
-import { Caption, Searchbar, Text } from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
+import {
+  Avatar,
+  List,
+  Palette,
+  Searchbar,
+  Snackbar,
+  useTheme,
+} from 'react-native-paper';
 
-import { useExampleTheme } from '..';
 import ScreenWrapper from '../ScreenWrapper';
 
-type Props = {
-  navigation: StackNavigationProp<{}>;
-};
+const SearchExample = () => {
+  const navigation = useNavigation('Searchbar');
 
-const SearchExample = ({ navigation }: Props) => {
-  const [firstQuery, setFirstQuery] = React.useState<string>('');
-  const [secondQuery, setSecondQuery] = React.useState<string>('');
-  const [thirdQuery, setThirdQuery] = React.useState<string>('');
-  const [fourthQuery, setFourthQuery] = React.useState<string>('');
+  const [isVisible, setIsVisible] = React.useState(false);
+  const [searchQueries, setSearchQuery] = React.useState({
+    searchBarMode: '',
+    trailingIcon: '',
+    trailingIconWithRightItem: '',
+    rightItem: '',
+    loadingBarMode: '',
+    searchViewMode: '',
+    searchWithoutBottomLine: '',
+    loadingViewMode: '',
+    clickableBack: '',
+    clickableDrawer: '',
+    clickableLoading: '',
+  });
 
-  const { isV3 } = useExampleTheme();
-
-  const TextComponent = isV3 ? Text : Caption;
+  const { colors } = useTheme();
 
   return (
-    <ScreenWrapper>
-      <Searchbar
-        placeholder="Search"
-        onChangeText={(query: string) => setFirstQuery(query)}
-        value={firstQuery}
-        style={styles.searchbar}
-      />
-      <TextComponent variant="bodySmall" style={styles.caption}>
-        Clickable icon
-      </TextComponent>
-      <Searchbar
-        placeholder="Search"
-        onChangeText={(query: string) => setSecondQuery(query)}
-        value={secondQuery}
-        onIconPress={() => navigation.goBack()}
-        icon={{ source: 'arrow-left', direction: 'auto' }}
-        style={styles.searchbar}
-      />
-      <Searchbar
-        placeholder="Search"
-        onChangeText={(query: string) => setThirdQuery(query)}
-        value={thirdQuery}
-        onIconPress={/* In real code, this will open the drawer */ () => {}}
-        icon="menu"
-        style={styles.searchbar}
-      />
-
-      <Searchbar
-        placeholder="Search"
-        onChangeText={(query: string) => setFourthQuery(query)}
-        value={fourthQuery}
-        loading
-        style={styles.searchbar}
-      />
-    </ScreenWrapper>
+    <>
+      <ScreenWrapper>
+        <List.Section title="Bar mode">
+          <Searchbar
+            placeholder="Search"
+            onChangeText={(query) =>
+              setSearchQuery({ ...searchQueries, searchBarMode: query })
+            }
+            value={searchQueries.searchBarMode}
+            style={styles.searchbar}
+            mode="bar"
+          />
+          <Searchbar
+            placeholder="Trailing icon"
+            onChangeText={(query) =>
+              setSearchQuery({ ...searchQueries, trailingIcon: query })
+            }
+            value={searchQueries.trailingIcon}
+            trailingIcon={'microphone'}
+            trailingIconColor={
+              isVisible ? Palette.error40 : colors.onSurfaceVariant
+            }
+            trailingIconAccessibilityLabel={'microphone button'}
+            onTrailingIconPress={() => setIsVisible(true)}
+            style={styles.searchbar}
+            mode="bar"
+          />
+          <Searchbar
+            mode="bar"
+            placeholder="Trailing icon with right item"
+            onChangeText={(query) =>
+              setSearchQuery({
+                ...searchQueries,
+                trailingIconWithRightItem: query,
+              })
+            }
+            value={searchQueries.trailingIconWithRightItem}
+            trailingIcon={'microphone'}
+            trailingIconColor={
+              isVisible ? Palette.error40 : colors.onSurfaceVariant
+            }
+            trailingIconAccessibilityLabel={'microphone button'}
+            onTrailingIconPress={() => setIsVisible(true)}
+            right={(props) => (
+              <Avatar.Image
+                {...props}
+                size={30}
+                source={require('../../assets/images/avatar.png')}
+              />
+            )}
+            style={styles.searchbar}
+          />
+          <Searchbar
+            mode="bar"
+            placeholder="Right item"
+            onChangeText={(query) =>
+              setSearchQuery({
+                ...searchQueries,
+                rightItem: query,
+              })
+            }
+            value={searchQueries.rightItem}
+            right={(props) => (
+              <Avatar.Image
+                {...props}
+                size={30}
+                source={require('../../assets/images/avatar.png')}
+              />
+            )}
+            style={styles.searchbar}
+          />
+          <Searchbar
+            placeholder="Loading"
+            onChangeText={(query) =>
+              setSearchQuery({
+                ...searchQueries,
+                loadingBarMode: query,
+              })
+            }
+            value={searchQueries.loadingBarMode}
+            style={styles.searchbar}
+            mode="bar"
+            loading
+            trailingIcon={'microphone'}
+          />
+        </List.Section>
+        <List.Section title="View mode">
+          <Searchbar
+            placeholder="Search"
+            onChangeText={(query) =>
+              setSearchQuery({
+                ...searchQueries,
+                searchViewMode: query,
+              })
+            }
+            value={searchQueries.searchViewMode}
+            style={styles.searchbar}
+            mode="view"
+          />
+          <Searchbar
+            placeholder="Search without bottom line"
+            onChangeText={(query) =>
+              setSearchQuery({
+                ...searchQueries,
+                searchWithoutBottomLine: query,
+              })
+            }
+            value={searchQueries.searchWithoutBottomLine}
+            style={styles.searchbar}
+            mode="view"
+            showDivider={false}
+          />
+          <Searchbar
+            placeholder="Loading"
+            onChangeText={(query) =>
+              setSearchQuery({
+                ...searchQueries,
+                loadingViewMode: query,
+              })
+            }
+            value={searchQueries.loadingViewMode}
+            style={styles.searchbar}
+            mode="view"
+            loading
+          />
+        </List.Section>
+        <List.Section title="Clickable icon">
+          <Searchbar
+            placeholder="Search"
+            onChangeText={(query) =>
+              setSearchQuery({
+                ...searchQueries,
+                clickableBack: query,
+              })
+            }
+            value={searchQueries.clickableBack}
+            onIconPress={() => {
+              Keyboard.dismiss();
+              navigation.goBack();
+            }}
+            onClearIconPress={() => {
+              Keyboard.dismiss();
+            }}
+            icon={{ source: 'arrow-left', direction: 'auto' }}
+            style={styles.searchbar}
+          />
+          <Searchbar
+            placeholder="Search"
+            onChangeText={(query) =>
+              setSearchQuery({
+                ...searchQueries,
+                clickableDrawer: query,
+              })
+            }
+            value={searchQueries.clickableDrawer}
+            onIconPress={() => {
+              Keyboard.dismiss();
+              navigation.openDrawer();
+            }}
+            icon="menu"
+            style={styles.searchbar}
+          />
+          <Searchbar
+            placeholder="Search"
+            onChangeText={(query) =>
+              setSearchQuery({
+                ...searchQueries,
+                clickableLoading: query,
+              })
+            }
+            value={searchQueries.clickableLoading}
+            loading
+            style={styles.searchbar}
+          />
+        </List.Section>
+      </ScreenWrapper>
+      <Snackbar
+        visible={isVisible}
+        onDismiss={() => setIsVisible(false)}
+        duration={Snackbar.DURATION_SHORT}
+      >
+        Microphone button pressed
+      </Snackbar>
+    </>
   );
 };
 
 SearchExample.title = 'Searchbar';
 
 const styles = StyleSheet.create({
-  caption: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
   searchbar: {
     margin: 4,
   },

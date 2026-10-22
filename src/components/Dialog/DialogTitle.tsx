@@ -1,12 +1,13 @@
 import * as React from 'react';
-import { StyleProp, StyleSheet, TextStyle } from 'react-native';
+import { StyleSheet } from 'react-native';
+import type { StyleProp, TextStyle } from 'react-native';
 
-import { withInternalTheme } from '../../core/theming';
-import type { InternalTheme } from '../../types';
+import { DialogTitleIdContext } from './utils';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
 import Text from '../Typography/Text';
-import Title from '../Typography/v2/Title';
 
-export type Props = React.ComponentPropsWithRef<typeof Title> & {
+export type Props = React.ComponentPropsWithRef<typeof Text> & {
   /**
    * Title text for the `DialogTitle`.
    */
@@ -15,22 +16,16 @@ export type Props = React.ComponentPropsWithRef<typeof Title> & {
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
 };
 
 /**
  * A component to show a title in a Dialog.
  *
- * <div class="screenshots">
- *   <figure>
- *     <img class="small" src="screenshots/dialog-title.png" />
- *   </figure>
- * </div>
- *
  * ## Usage
  * ```js
  * import * as React from 'react';
- * import { Paragraph, Dialog, Portal } from 'react-native-paper';
+ * import { Dialog, Text } from 'react-native-paper';
  *
  * const MyComponent = () => {
  *   const [visible, setVisible] = React.useState(false);
@@ -38,39 +33,44 @@ export type Props = React.ComponentPropsWithRef<typeof Title> & {
  *   const hideDialog = () => setVisible(false);
  *
  *   return (
- *     <Portal>
- *       <Dialog visible={visible} onDismiss={hideDialog}>
- *         <Dialog.Title>This is a title</Dialog.Title>
- *         <Dialog.Content>
- *           <Paragraph>This is simple dialog</Paragraph>
- *         </Dialog.Content>
- *       </Dialog>
- *     </Portal>
+ *     <Dialog visible={visible} onDismiss={hideDialog}>
+ *       <Dialog.Title>This is a title</Dialog.Title>
+ *       <Dialog.Content>
+ *         <Text variant="bodyMedium">This is simple dialog</Text>
+ *       </Dialog.Content>
+ *     </Dialog>
  *   );
  * };
  *
  * export default MyComponent;
  * ```
  */
-const DialogTitle = ({ children, theme, style, ...rest }: Props) => {
-  const { isV3 } = theme;
-
-  const TextComponent = isV3 ? Text : Title;
+const DialogTitle = ({
+  children,
+  theme: themeOverrides,
+  style,
+  nativeID,
+  ...rest
+}: Props) => {
+  const theme = useInternalTheme(themeOverrides);
+  const { colors, fonts } = theme;
+  const titleId = React.useContext(DialogTitleIdContext);
 
   const headerTextStyle = {
-    color: isV3 ? theme.colors.onSurface : theme.colors?.text,
-    ...(isV3 ? theme.fonts.headlineSmall : {}),
+    color: colors.onSurface,
+    ...fonts.headlineSmall,
   };
 
   return (
-    <TextComponent
+    <Text
       variant="headlineSmall"
-      accessibilityRole="header"
-      style={[styles.text, isV3 && styles.v3Text, headerTextStyle, style]}
+      role="heading"
+      nativeID={titleId ?? nativeID}
+      style={[styles.text, styles.v3Text, headerTextStyle, style]}
       {...rest}
     >
       {children}
-    </TextComponent>
+    </Text>
   );
 };
 
@@ -83,12 +83,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 24,
   },
   v3Text: {
-    marginTop: 16,
+    marginTop: 0,
     marginBottom: 16,
   },
 });
 
-export default withInternalTheme(DialogTitle);
+export default DialogTitle;
 
 // @component-docs ignore-next-line
 export { DialogTitle };

@@ -1,7 +1,8 @@
 import * as React from 'react';
-import { View, ViewStyle, StyleSheet, StyleProp } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
 
-export type Props = React.ComponentPropsWithRef<typeof View> & {
+export type Props = ViewProps & {
   /**
    * Content of the `DialogContent`.
    */
@@ -12,17 +13,10 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
 /**
  * A component to show content in a Dialog.
  *
- * <div class="screenshots">
- *   <figure>
- *     <img class="small" src="screenshots/dialog-content.png" />
- *   </figure>
- * </div>
- *
- *
  * ## Usage
  * ```js
  * import * as React from 'react';
- * import { Paragraph, Dialog, Portal } from 'react-native-paper';
+ * import { Dialog, Text } from 'react-native-paper';
  *
  * const MyComponent = () => {
  *   const [visible, setVisible] = React.useState(false);
@@ -30,13 +24,11 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
  *   const hideDialog = () => setVisible(false);
  *
  *   return (
- *     <Portal>
- *       <Dialog visible={visible} onDismiss={hideDialog}>
- *         <Dialog.Content>
- *           <Paragraph>This is simple dialog</Paragraph>
- *         </Dialog.Content>
- *       </Dialog>
- *     </Portal>
+ *     <Dialog visible={visible} onDismiss={hideDialog}>
+ *       <Dialog.Content>
+ *         <Text variant="bodyMedium">This is simple dialog</Text>
+ *       </Dialog.Content>
+ *     </Dialog>
  *   );
  * };
  *

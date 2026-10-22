@@ -1,24 +1,22 @@
 import * as React from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
 
+import { CardContext } from './CardContext';
 import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
 
-export type Props = React.ComponentPropsWithRef<typeof View> & {
+export type Props = ViewProps & {
   /**
    * Items inside the `CardActions`.
    */
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  theme?: ThemeProp;
 };
 
 /**
  * A component to show a list of actions inside a Card.
- *
- * <div class="screenshots">
- *   <figure>
- *     <img class="small" src="screenshots/card-actions.png" />
- *   </figure>
- * </div>
  *
  * ## Usage
  * ```js
@@ -28,8 +26,8 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
  * const MyComponent = () => (
  *   <Card>
  *     <Card.Actions>
- *       <Button>Cancel</Button>
- *       <Button>Ok</Button>
+ *       <Button mode="outlined">Cancel</Button>
+ *       <Button mode="contained">Ok</Button>
  *     </Card.Actions>
  *   </Card>
  * );
@@ -37,26 +35,34 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
  * export default MyComponent;
  * ```
  */
-const CardActions = (props: Props) => {
-  const { isV3 } = useInternalTheme();
-  const justifyContent = isV3 ? 'flex-end' : 'flex-start';
+const CardActions = ({ theme, style, children, ...rest }: Props) => {
+  useInternalTheme(theme);
+  const cardContext = React.useContext(CardContext);
+
+  const cardMarginStyle = cardContext
+    ? cardContext.direction === 'horizontal'
+      ? {
+          marginTop: -cardContext.padding,
+          marginRight: -cardContext.padding,
+          marginBottom: -cardContext.padding,
+        }
+      : {
+          marginLeft: -cardContext.padding,
+          marginRight: -cardContext.padding,
+          marginBottom: -cardContext.padding,
+        }
+    : null;
+
+  const containerStyle = [
+    styles.container,
+    cardMarginStyle,
+    { justifyContent: 'flex-end' } satisfies ViewStyle,
+    style,
+  ];
 
   return (
-    <View
-      {...props}
-      style={[styles.container, props.style, { justifyContent }]}
-    >
-      {React.Children.map(props.children, (child, i) => {
-        return React.isValidElement(child)
-          ? React.cloneElement(child, {
-              compact: !isV3 && child.props.compact !== false,
-              mode:
-                child.props.mode ||
-                (isV3 && (i === 0 ? 'outlined' : 'contained')),
-              style: isV3 && styles.button,
-            })
-          : child;
-      })}
+    <View {...rest} style={containerStyle}>
+      {children}
     </View>
   );
 };
@@ -67,10 +73,9 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
-  },
-  button: {
-    marginLeft: 8,
+    columnGap: 8,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
   },
 });
 

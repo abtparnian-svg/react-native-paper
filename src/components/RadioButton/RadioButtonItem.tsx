@@ -1,21 +1,24 @@
-import * as React from 'react';
-import {
+import { StyleSheet, View } from 'react-native';
+import type {
+  GestureResponderEvent,
+  PressableAndroidRippleConfig,
   StyleProp,
-  StyleSheet,
   TextStyle,
-  View,
   ViewStyle,
 } from 'react-native';
 
-import { withInternalTheme } from '../../core/theming';
-import type { InternalTheme, MD3TypescaleKey } from '../../types';
-import TouchableRipple from '../TouchableRipple/TouchableRipple';
-import Text from '../Typography/Text';
 import RadioButton from './RadioButton';
 import RadioButtonAndroid from './RadioButtonAndroid';
-import { RadioButtonContext, RadioButtonContextType } from './RadioButtonGroup';
+import { RadioButtonContext } from './RadioButtonGroup';
+import type { RadioButtonContextType } from './RadioButtonGroup';
 import RadioButtonIOS from './RadioButtonIOS';
 import { handlePress, isChecked } from './utils';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp, TypescaleKey } from '../../theme/types';
+import { getStateLayer } from '../../theme/utils/state';
+import TouchableRipple from '../TouchableRipple/TouchableRipple';
+import type { Props as TouchableRippleProps } from '../TouchableRipple/TouchableRipple';
+import Text from '../Typography/Text';
 
 export type Props = {
   /**
@@ -31,13 +34,22 @@ export type Props = {
    */
   disabled?: boolean;
   /**
+   * Type of background drawable to display the feedback (Android).
+   * https://reactnative.dev/docs/pressable#rippleconfig
+   */
+  background?: PressableAndroidRippleConfig;
+  /**
    * Function to execute on press.
    */
-  onPress?: () => void;
+  onPress?: (e: GestureResponderEvent) => void;
+  /**
+   * Function to execute on long press.
+   */
+  onLongPress?: (e: GestureResponderEvent) => void;
   /**
    * Accessibility label for the touchable. This is read by the screen reader when the user taps the touchable.
    */
-  accessibilityLabel?: string;
+  'aria-label'?: string;
   /**
    * Custom color for unchecked radio.
    */
@@ -74,11 +86,15 @@ export type Props = {
    *
    *  Body: `bodyLarge`, `bodyMedium`, `bodySmall`
    */
-  labelVariant?: keyof typeof MD3TypescaleKey;
+  labelVariant?: TypescaleKey;
+  /**
+   * Specifies the largest possible scale a label font can reach.
+   */
+  labelMaxFontSizeMultiplier?: number;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
   /**
    * testID to be used on tests.
    */
@@ -92,17 +108,14 @@ export type Props = {
    * Radio button control position.
    */
   position?: 'leading' | 'trailing';
+  /**
+   * Sets additional distance outside of element in which a press can be detected.
+   */
+  hitSlop?: TouchableRippleProps['hitSlop'];
 };
 
 /**
  * RadioButton.Item allows you to press the whole row (item) instead of only the RadioButton.
- *
- * <div class="screenshots">
- *   <figure>
- *     <img class="medium" src="screenshots/radio-item.ios.png" />
- *     <figcaption>Pressed</figcaption>
- *   </figure>
- * </div>
  *
  * ## Usage
  * ```js
@@ -129,18 +142,30 @@ const RadioButtonItem = ({
   style,
   labelStyle,
   onPress,
+  onLongPress,
   disabled,
   color,
   uncheckedColor,
   status,
-  theme,
-  accessibilityLabel = label,
+  theme: themeOverrides,
+  background,
+  'aria-label': ariaLabel = label,
   testID,
   mode,
   position = 'trailing',
   labelVariant = 'bodyLarge',
+  labelMaxFontSizeMultiplier,
+  hitSlop,
 }: Props) => {
-  const radioButtonProps = { value, disabled, status, color, uncheckedColor };
+  const theme = useInternalTheme(themeOverrides);
+  const radioButtonProps = {
+    value,
+    disabled,
+    status,
+    color,
+    theme,
+    uncheckedColor,
+  };
   const isLeading = position === 'leading';
   let radioButton: any;
 
@@ -152,20 +177,16 @@ const RadioButtonItem = ({
     radioButton = <RadioButton {...radioButtonProps} />;
   }
 
-  const textColor = theme.isV3 ? theme.colors.onSurface : theme.colors.text;
-  const disabledTextColor = theme.isV3
-    ? theme.colors.onSurfaceDisabled
-    : theme.colors.disabled;
   const textAlign = isLeading ? 'right' : 'left';
 
-  const computedStyle = {
-    color: disabled ? disabledTextColor : textColor,
+  const computedStyle: TextStyle = {
+    ...getStateLayer(theme, 'onSurface', disabled ? 'disabled' : 'enabled'),
     textAlign,
-  } as TextStyle;
+  };
 
   return (
     <RadioButtonContext.Consumer>
-      {(context?: RadioButtonContextType) => {
+      {(context: RadioButtonContextType | null) => {
         const checked =
           isChecked({
             contextValue: context?.value,
@@ -174,32 +195,31 @@ const RadioButtonItem = ({
           }) === 'checked';
         return (
           <TouchableRipple
-            onPress={() =>
+            onPress={(event) =>
               handlePress({
                 onPress: onPress,
                 onValueChange: context?.onValueChange,
                 value,
+                event,
               })
             }
-            accessibilityLabel={accessibilityLabel}
-            accessibilityRole="radio"
-            accessibilityState={{
-              checked,
-              disabled,
-            }}
+            onLongPress={onLongPress}
+            aria-label={ariaLabel}
+            role="radio"
+            aria-checked={checked}
+            aria-disabled={disabled}
             testID={testID}
             disabled={disabled}
+            background={background}
+            theme={theme}
+            hitSlop={hitSlop}
           >
             <View style={[styles.container, style]} pointerEvents="none">
               {isLeading && radioButton}
               <Text
                 variant={labelVariant}
-                style={[
-                  styles.label,
-                  !theme.isV3 && styles.font,
-                  computedStyle,
-                  labelStyle,
-                ]}
+                style={[styles.label, computedStyle, labelStyle]}
+                maxFontSizeMultiplier={labelMaxFontSizeMultiplier}
               >
                 {label}
               </Text>
@@ -214,12 +234,10 @@ const RadioButtonItem = ({
 
 RadioButtonItem.displayName = 'RadioButton.Item';
 
-export default withInternalTheme(RadioButtonItem);
+export default RadioButtonItem;
 
 // @component-docs ignore-next-line
-const RadioButtonItemWithTheme = withInternalTheme(RadioButtonItem);
-// @component-docs ignore-next-line
-export { RadioButtonItemWithTheme as RadioButtonItem };
+export { RadioButtonItem };
 
 const styles = StyleSheet.create({
   container: {
@@ -232,8 +250,5 @@ const styles = StyleSheet.create({
   label: {
     flexShrink: 1,
     flexGrow: 1,
-  },
-  font: {
-    fontSize: 16,
   },
 });

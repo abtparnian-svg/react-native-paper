@@ -1,16 +1,17 @@
 import * as React from 'react';
-import {
-  Animated,
-  I18nManager,
-  StyleProp,
-  StyleSheet,
-  TextStyle,
-} from 'react-native';
+import type { ReactNode } from 'react';
+import { StyleSheet } from 'react-native';
 
-import { withInternalTheme } from '../../core/theming';
-import { Font, InternalTheme, MD3TypescaleKey } from '../../types';
+import Animated from 'react-native-reanimated';
 
-type Props = React.ComponentPropsWithRef<typeof Animated.Text> & {
+import type { VariantProp } from './types';
+import { useLocale } from '../../core/locale';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
+
+type AnimatedTextProps = React.ComponentProps<typeof Animated.Text>;
+
+type Props<T> = AnimatedTextProps & {
   /**
    * Variant defines appropriate text styles for type role and its size.
    * Available variants:
@@ -25,12 +26,11 @@ type Props = React.ComponentPropsWithRef<typeof Animated.Text> & {
    *
    *  Body: `bodyLarge`, `bodyMedium`, `bodySmall`
    */
-  variant?: keyof typeof MD3TypescaleKey;
-  style?: StyleProp<TextStyle>;
+  variant?: VariantProp<T>;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
 };
 
 /**
@@ -38,53 +38,48 @@ type Props = React.ComponentPropsWithRef<typeof Animated.Text> & {
  *
  * @extends Text props https://reactnative.dev/docs/text#props
  */
-function AnimatedText({ style, theme, variant, ...rest }: Props) {
-  const writingDirection = I18nManager.getConstants().isRTL ? 'rtl' : 'ltr';
+function AnimatedText({
+  style,
+  theme: themeOverrides,
+  variant,
+  ref,
+  ...rest
+}: Props<never>) {
+  const theme = useInternalTheme(themeOverrides);
 
-  if (theme.isV3 && variant) {
-    const stylesByVariant = Object.keys(MD3TypescaleKey).reduce(
-      (acc, key) => {
-        const { fontSize, fontWeight, lineHeight, letterSpacing, fontFamily } =
-          theme.fonts[key as keyof typeof MD3TypescaleKey];
+  const { direction: writingDirection } = useLocale();
 
-        return {
-          ...acc,
-          [key]: {
-            fontFamily,
-            fontSize,
-            fontWeight,
-            lineHeight: lineHeight,
-            letterSpacing,
-            color: theme.colors.onSurface,
-          },
-        };
-      },
-      {} as {
-        [key in MD3TypescaleKey]: {
-          fontSize: number;
-          fontWeight: Font['fontWeight'];
-          lineHeight: number;
-          letterSpacing: number;
-        };
-      }
-    );
-
-    const styleForVariant = stylesByVariant[variant];
+  if (variant) {
+    const font = theme.fonts[variant];
+    if (typeof font !== 'object') {
+      throw new Error(
+        `Variant ${variant} was not provided properly. Valid variants are ${Object.keys(
+          theme.fonts
+        ).join(', ')}.`
+      );
+    }
 
     return (
       <Animated.Text
+        ref={ref}
         {...rest}
-        style={[styleForVariant, styles.text, { writingDirection }, style]}
+        style={[
+          font,
+          styles.text,
+          { writingDirection, color: theme.colors.onSurface },
+          style,
+        ]}
       />
     );
   } else {
-    const font = !theme.isV3 ? theme.fonts.regular : theme.fonts.bodyMedium;
+    const font = theme.fonts.bodyMedium;
     const textStyle = {
       ...font,
-      color: theme.isV3 ? theme.colors.onSurface : theme.colors.text,
+      color: theme.colors.onSurface,
     };
     return (
       <Animated.Text
+        ref={ref}
         {...rest}
         style={[
           styles.text,
@@ -105,4 +100,8 @@ const styles = StyleSheet.create({
   },
 });
 
-export default withInternalTheme(AnimatedText);
+export const customAnimatedText = <T,>() =>
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  AnimatedText as (props: Props<T>) => ReactNode;
+
+export default AnimatedText;

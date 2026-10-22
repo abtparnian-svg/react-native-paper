@@ -1,35 +1,10 @@
-import * as React from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { IconButton, List, MD2Colors, MD3Colors } from 'react-native-paper';
+import { IconButton, List, Palette } from 'react-native-paper';
 
-import { useExampleTheme } from '..';
 import ScreenWrapper from '../ScreenWrapper';
 
 const ButtonExample = () => {
-  const { isV3 } = useExampleTheme();
-  if (!isV3) {
-    return (
-      <ScreenWrapper contentContainerStyle={styles.v2Container}>
-        <IconButton icon="camera" size={24} onPress={() => {}} />
-        <IconButton
-          icon="lock"
-          size={24}
-          iconColor={MD2Colors.green500}
-          onPress={() => {}}
-        />
-        <IconButton icon="camera" size={36} onPress={() => {}} />
-        <IconButton
-          icon="lock"
-          size={36}
-          onPress={() => {}}
-          style={{ backgroundColor: MD2Colors.lightGreen200 }}
-        />
-        <IconButton icon="heart" size={60} onPress={() => {}} />
-      </ScreenWrapper>
-    );
-  }
-
   return (
     <ScreenWrapper contentContainerStyle={styles.v3Container}>
       <List.Section title="Default">
@@ -37,6 +12,7 @@ const ButtonExample = () => {
           <IconButton icon="camera" size={24} onPress={() => {}} />
           <IconButton icon="camera" selected size={24} onPress={() => {}} />
           <IconButton icon="camera" disabled size={24} onPress={() => {}} />
+          <IconButton icon="camera" size={24} onPress={() => {}} loading />
         </View>
       </List.Section>
 
@@ -59,6 +35,14 @@ const ButtonExample = () => {
             icon="camera"
             mode="contained"
             disabled
+            size={24}
+            onPress={() => {}}
+          />
+          <IconButton
+            icon=""
+            mode="contained"
+            selected
+            loading
             size={24}
             onPress={() => {}}
           />
@@ -87,6 +71,14 @@ const ButtonExample = () => {
             size={24}
             onPress={() => {}}
           />
+          <IconButton
+            icon=""
+            mode="contained-tonal"
+            disabled
+            size={24}
+            onPress={() => {}}
+            loading
+          />
         </View>
       </List.Section>
 
@@ -112,6 +104,14 @@ const ButtonExample = () => {
             size={24}
             onPress={() => {}}
           />
+          <IconButton
+            icon=""
+            mode="outlined"
+            disabled
+            size={24}
+            onPress={() => {}}
+            loading
+          />
         </View>
       </List.Section>
 
@@ -120,7 +120,40 @@ const ButtonExample = () => {
           <IconButton
             icon="lock"
             size={24}
-            iconColor={MD3Colors.tertiary50}
+            iconColor={Palette.tertiary50}
+            onPress={() => {}}
+          />
+          <IconButton
+            icon="eye"
+            mode="contained"
+            style={styles.square}
+            size={24}
+            iconColor={Palette.tertiary50}
+            onPress={() => {}}
+          />
+          <IconButton
+            icon="eye"
+            mode="contained"
+            style={styles.slightlyRounded}
+            size={24}
+            contentStyle={styles.contentPadding}
+            iconColor={Palette.tertiary50}
+            onPress={() => {}}
+          />
+          <IconButton
+            icon="heart"
+            mode="contained-tonal"
+            style={styles.differentBorderRadius}
+            size={24}
+            iconColor={Palette.tertiary50}
+            onPress={() => {}}
+          />
+          <IconButton
+            icon="heart"
+            mode="outlined"
+            style={styles.differentBorderRadius}
+            size={24}
+            iconColor={Palette.tertiary50}
             onPress={() => {}}
           />
           <IconButton icon="camera" size={36} onPress={() => {}} />
@@ -128,9 +161,10 @@ const ButtonExample = () => {
             icon="lock"
             size={36}
             onPress={() => {}}
-            containerColor={MD3Colors.tertiary60}
+            containerColor={Palette.tertiary60}
           />
           <IconButton icon="heart" size={60} onPress={() => {}} />
+          <IconButton icon="" size={60} onPress={() => {}} loading />
         </View>
       </List.Section>
     </ScreenWrapper>
@@ -140,16 +174,29 @@ const ButtonExample = () => {
 ButtonExample.title = 'Icon Button';
 
 const styles = StyleSheet.create({
-  v2Container: {
-    flexDirection: 'row',
-    padding: 8,
-  },
   v3Container: {
     flexDirection: 'column',
   },
   row: {
     flexDirection: 'row',
     paddingHorizontal: 12,
+  },
+  square: {
+    borderRadius: 0,
+  },
+  slightlyRounded: {
+    borderRadius: 4,
+    width: 48,
+    height: 48,
+  },
+  contentPadding: {
+    padding: 8,
+  },
+  differentBorderRadius: {
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 4,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 6,
   },
 });
 

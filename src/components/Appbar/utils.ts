@@ -2,55 +2,91 @@ import React from 'react';
 import type { ColorValue, StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet } from 'react-native';
 
-import color from 'color';
-
-import overlay from '../../styles/overlay';
-import { black, white } from '../../styles/themes/v2/colors';
-import type { InternalTheme } from '../../types';
-import AppbarAction from './AppbarAction';
-import AppbarBackAction from './AppbarBackAction';
-import AppbarContent from './AppbarContent';
+import { white } from '../../theme/colors';
+import type { InternalTheme, ThemeProp } from '../../theme/types';
 
 export type AppbarModes = 'small' | 'medium' | 'large' | 'center-aligned';
 
-export const getAppbarColor = (
+export type AppbarChildProps = {
+  isLeading?: boolean;
+  color: string;
+  style?: StyleProp<ViewStyle>;
+};
+
+const borderStyleProperties = [
+  'borderRadius',
+  'borderBottomEndRadius',
+  'borderBottomStartRadius',
+  'borderEndEndRadius',
+  'borderEndStartRadius',
+  'borderStartEndRadius',
+  'borderStartStartRadius',
+  'borderTopEndRadius',
+  'borderTopStartRadius',
+  'borderTopLeftRadius',
+  'borderTopRightRadius',
+  'borderBottomRightRadius',
+  'borderBottomLeftRadius',
+  'borderCurve',
+] satisfies readonly (keyof ViewStyle)[];
+
+export const getAppbarBackgroundColor = (
   theme: InternalTheme,
-  elevation: number,
-  customBackground?: ColorValue,
-  elevated?: boolean
+  elevated: boolean,
+  customBackground?: ColorValue
 ) => {
-  const { isV3, dark: isDarkTheme, mode, colors } = theme;
-  const isAdaptiveMode = mode === 'adaptive';
+  const { colors } = theme;
   if (customBackground) {
     return customBackground;
   }
 
-  if (!isV3) {
-    if (isDarkTheme && isAdaptiveMode) {
-      return overlay(elevation, colors?.surface);
-    }
-
-    return colors.primary;
-  }
-
   if (elevated) {
-    return color(colors.surface)
-      .mix(color(colors.primary), 0.08)
-      .rgb()
-      .string();
+    return colors.surfaceContainer;
   }
 
   return colors.surface;
 };
 
-type RenderAppbarContentProps = {
-  children: React.ReactNode;
+export const getAppbarColor = ({
+  color,
+  isDark,
+}: BaseProps & { color: string }) => {
+  if (typeof color !== 'undefined') {
+    return color;
+  }
+
+  if (isDark) {
+    return white;
+  }
+
+  return undefined;
+};
+
+export const getAppbarBorders = (style: ViewStyle) => {
+  let borders: ViewStyle = {};
+
+  for (const property of borderStyleProperties) {
+    const value = style[property];
+
+    if (typeof value === 'number' || typeof value === 'string') {
+      borders = { ...borders, [property]: value };
+    }
+  }
+
+  return borders;
+};
+
+type BaseProps = {
   isDark: boolean;
+};
+
+type RenderAppbarContentProps = BaseProps & {
+  children: React.ReactNode;
   shouldCenterContent?: boolean;
-  isV3: boolean;
-  renderOnly?: React.ReactNode[];
-  renderExcept?: React.ReactNode[];
+  renderOnly?: (string | boolean)[];
+  renderExcept?: string[];
   mode?: AppbarModes;
+  theme?: ThemeProp;
 };
 
 export const DEFAULT_APPBAR_HEIGHT = 56;
@@ -68,73 +104,80 @@ export const modeTextVariant = {
   medium: 'headlineSmall',
   large: 'headlineMedium',
   'center-aligned': 'titleLarge',
+} as const;
+
+export const filterAppbarActions = (
+  children: React.ReactNode,
+  isLeading = false
+) => {
+  return React.Children.toArray(children).filter((child) => {
+    if (!React.isValidElement<AppbarChildProps>(child)) return false;
+    return isLeading ? child.props.isLeading : !child.props.isLeading;
+  });
 };
 
 export const renderAppbarContent = ({
   children,
   isDark,
   shouldCenterContent = false,
-  isV3,
   renderOnly,
   renderExcept,
   mode = 'small',
+  theme,
 }: RenderAppbarContentProps) => {
-  return (
-    React.Children.toArray(children)
-      .filter((child) => child != null && typeof child !== 'boolean')
-      .filter((child) =>
-        // @ts-expect-error: TypeScript complains about the type of type but it doesn't matter
-        renderExcept ? !renderExcept.includes(child.type) : child
-      )
+  return React.Children.toArray(children)
+    .filter((child) => child != null && typeof child !== 'boolean')
+    .filter((child) =>
       // @ts-expect-error: TypeScript complains about the type of type but it doesn't matter
-      .filter((child) => (renderOnly ? renderOnly.includes(child.type) : child))
-      .map((child, i) => {
-        if (
-          !React.isValidElement(child) ||
-          ![AppbarContent, AppbarAction, AppbarBackAction].includes(
-            // @ts-expect-error: TypeScript complains about the type of type but it doesn't matter
-            child.type
-          )
-        ) {
-          return child;
-        }
+      renderExcept ? !renderExcept.includes(child.type.displayName) : child
+    )
+    .filter((child) =>
+      // @ts-expect-error: TypeScript complains about the type of type but it doesn't matter
+      renderOnly ? renderOnly.includes(child.type.displayName) : child
+    )
+    .map((child, i) => {
+      if (
+        !React.isValidElement<AppbarChildProps>(child) ||
+        ![
+          'Appbar.Content',
+          'Appbar.Action',
+          'Appbar.BackAction',
+          'Tooltip',
+        ].includes(
+          // @ts-expect-error: TypeScript complains about the type of type but it doesn't matter
+          child.type.displayName
+        )
+      ) {
+        return child;
+      }
 
-        const props: {
-          color?: string;
-          style?: StyleProp<ViewStyle>;
-          mode?: AppbarModes;
-        } = {
-          color:
-            typeof child.props.color !== 'undefined'
-              ? child.props.color
-              : isV3
-              ? undefined
-              : isDark
-              ? white
-              : black,
-        };
+      const props: {
+        color?: string;
+        style?: StyleProp<ViewStyle>;
+        mode?: AppbarModes;
+        theme?: ThemeProp;
+      } = {
+        theme,
+        color: getAppbarColor({ color: child.props.color, isDark }),
+      };
 
-        if (child.type === AppbarContent) {
-          props.mode = mode;
-          props.style = [
-            isV3
-              ? i === 0 && !shouldCenterContent && styles.v3Spacing
-              : i !== 0 && styles.v2Spacing,
-            shouldCenterContent && styles.centerAlignedContent,
-            child.props.style,
-          ];
-        }
-        return React.cloneElement(child, props);
-      })
-  );
+      // @ts-expect-error: TypeScript complains about the type of type but it doesn't matter
+      if (child.type.displayName === 'Appbar.Content') {
+        props.mode = mode;
+        props.style = [
+          i === 0 && !shouldCenterContent && styles.v3Spacing,
+          shouldCenterContent && styles.centerAlignedContent,
+          child.props.style,
+        ];
+        props.color;
+      }
+      return React.cloneElement(child, props);
+    });
 };
 
 const styles = StyleSheet.create({
   centerAlignedContent: {
     alignItems: 'center',
-  },
-  v2Spacing: {
-    marginLeft: 8,
   },
   v3Spacing: {
     marginLeft: 12,

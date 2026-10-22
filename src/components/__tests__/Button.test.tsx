@@ -1,0 +1,638 @@
+import { StyleSheet } from 'react-native';
+
+import { describe, expect, it, jest } from '@jest/globals';
+import { userEvent } from '@testing-library/react-native';
+
+import { render, screen } from '../../test-utils';
+import { pink500, white } from '../../theme/colors';
+import { DarkTheme, LightTheme } from '../../theme/schemes';
+import { tokens } from '../../theme/tokens';
+import Button from '../Button/Button';
+import { getButtonColors } from '../Button/utils';
+
+const stateOpacity = tokens.md.sys.state.opacity;
+
+const styles = StyleSheet.create({
+  flexing: {
+    flexDirection: 'row-reverse',
+  },
+});
+
+it('renders text button by default', async () => {
+  const tree = (await render(<Button>Text Button</Button>)).toJSON();
+
+  expect(tree).toMatchSnapshot();
+});
+
+it('renders text button with mode', async () => {
+  const tree = (
+    await render(<Button mode="text">Text Button</Button>)
+  ).toJSON();
+
+  expect(tree).toMatchSnapshot();
+});
+
+it('renders outlined button with mode', async () => {
+  const tree = (
+    await render(<Button mode="outlined">Outlined Button</Button>)
+  ).toJSON();
+
+  expect(tree).toMatchSnapshot();
+});
+
+it('renders contained contained with mode', async () => {
+  const tree = (
+    await render(<Button mode="contained">Contained Button</Button>)
+  ).toJSON();
+
+  expect(tree).toMatchSnapshot();
+});
+
+it('renders button with icon', async () => {
+  const tree = (
+    await render(<Button icon="camera">Icon Button</Button>)
+  ).toJSON();
+
+  expect(tree).toMatchSnapshot();
+});
+
+it('renders button with icon in reverse order', async () => {
+  const tree = (
+    await render(
+      <Button icon="chevron-right" contentStyle={styles.flexing}>
+        Right Icon
+      </Button>
+    )
+  ).toJSON();
+
+  expect(tree).toMatchSnapshot();
+});
+
+it('renders loading button', async () => {
+  const tree = (await render(<Button loading>Loading Button</Button>)).toJSON();
+
+  expect(tree).toMatchSnapshot();
+});
+
+it('renders disabled button', async () => {
+  const tree = (
+    await render(<Button disabled>Disabled Button</Button>)
+  ).toJSON();
+
+  expect(tree).toMatchSnapshot();
+});
+
+it('renders disabled button if there is no touch handler passed', async () => {
+  await render(<Button testID="disabled-button">Disabled button</Button>);
+
+  expect(screen.getByTestId('disabled-button')).toBeDisabled();
+});
+
+it('renders active button if only onLongPress handler is passed', async () => {
+  await render(
+    <Button onLongPress={() => {}} testID="active-button">
+      Active button
+    </Button>
+  );
+
+  expect(screen.getByTestId('active-button')).toBeEnabled();
+});
+
+it('renders button with color', async () => {
+  const tree = (
+    await render(<Button textColor={pink500}>Custom Button</Button>)
+  ).toJSON();
+
+  expect(tree).toMatchSnapshot();
+});
+
+it('renders button with button color', async () => {
+  const tree = (
+    await render(<Button buttonColor={pink500}>Custom Button</Button>)
+  ).toJSON();
+
+  expect(tree).toMatchSnapshot();
+});
+
+it('renders button with custom testID', async () => {
+  const tree = (
+    await render(
+      <Button testID={'custom:testID'}>Button with custom testID</Button>
+    )
+  ).toJSON();
+
+  expect(tree).toMatchSnapshot();
+});
+
+it('renders button with an accessibility label', async () => {
+  const tree = (
+    await render(
+      <Button accessibilityLabel={'label'}>
+        Button with accessibility label
+      </Button>
+    )
+  ).toJSON();
+
+  expect(tree).toMatchSnapshot();
+});
+
+it('renders button with an accessibility hint', async () => {
+  const tree = (
+    await render(
+      <Button accessibilityHint={'hint'}>Button with accessibility hint</Button>
+    )
+  ).toJSON();
+
+  expect(tree).toMatchSnapshot();
+});
+
+it('should execute onPressIn', async () => {
+  const onPressInMock = jest.fn();
+  const onPress = jest.fn();
+
+  await render(
+    <Button onPress={onPress} onPressIn={onPressInMock} testID="button">
+      {null}
+    </Button>
+  );
+  await userEvent.press(screen.getByTestId('button'));
+  expect(onPressInMock).toHaveBeenCalledTimes(1);
+});
+
+it('should execute onPressOut', async () => {
+  const onPressOutMock = jest.fn();
+  const onPress = jest.fn();
+
+  await render(
+    <Button onPress={onPress} onPressOut={onPressOutMock} testID="button">
+      {null}
+    </Button>
+  );
+  await userEvent.press(screen.getByTestId('button'));
+  expect(onPressOutMock).toHaveBeenCalledTimes(1);
+});
+
+describe('button text styles', () => {
+  it('applies uppercase styles if uppercase prop is truthy', async () => {
+    await render(
+      <Button testID="button" uppercase>
+        Test
+      </Button>
+    );
+
+    expect(screen.getByText('Test')).toHaveStyle({
+      textTransform: 'uppercase',
+    });
+  });
+
+  it('does not apply uppercase styles if uppercase prop is falsy', async () => {
+    await render(
+      <Button testID="button" uppercase={false}>
+        Test
+      </Button>
+    );
+
+    expect(screen.getByText('Test')).not.toHaveStyle({
+      textTransform: 'uppercase',
+    });
+  });
+});
+
+describe('button icon styles', () => {
+  it('should return correct icon styles for compact text button', async () => {
+    const { toJSON } = await render(
+      <Button mode={'text'} compact icon="camera" testID="compact-button">
+        Compact text button
+      </Button>
+    );
+    expect(toJSON()).toMatchSnapshot();
+  });
+
+  (['outlined', 'contained', 'contained-tonal', 'elevated'] as const).forEach(
+    (mode) =>
+      it(`should return correct icon styles for compact ${mode} button`, async () => {
+        const { toJSON } = await render(
+          <Button mode={mode} compact icon="camera" testID="compact-button">
+            Compact {mode} button
+          </Button>
+        );
+        expect(toJSON()).toMatchSnapshot();
+      })
+  );
+
+  it('should return correct icon styles for text button', async () => {
+    const { toJSON } = await render(
+      <Button mode={'text'} icon="camera" testID="compact-button">
+        text button
+      </Button>
+    );
+    expect(toJSON()).toMatchSnapshot();
+  });
+
+  (['outlined', 'contained', 'contained-tonal', 'elevated'] as const).forEach(
+    (mode) =>
+      it(`should return correct icon styles for compact ${mode} button`, async () => {
+        const { toJSON } = await render(
+          <Button mode={mode} icon="camera" testID="compact-button">
+            {mode} button
+          </Button>
+        );
+        expect(toJSON()).toMatchSnapshot();
+      })
+  );
+});
+
+describe('getButtonColors - background color', () => {
+  const customButtonColor = '#111111';
+
+  it('should return custom color no matter what is the theme version, when not disabled', () => {
+    expect(
+      getButtonColors({
+        customButtonColor,
+        theme: LightTheme,
+        disabled: false,
+        mode: 'text',
+      })
+    ).toMatchObject({ backgroundColor: customButtonColor });
+  });
+
+  (['outlined', 'text'] as const).forEach((mode) =>
+    it(`should return correct disabled color, for theme version 3, ${mode} mode`, () => {
+      expect(
+        getButtonColors({
+          customButtonColor,
+          theme: LightTheme,
+          mode,
+          disabled: true,
+        })
+      ).toMatchObject({ backgroundColor: 'transparent' });
+    })
+  );
+
+  (['outlined', 'text'] as const).forEach((mode) =>
+    it(`should return correct disabled color, for theme version 3, dark theme, ${mode} mode`, () => {
+      expect(
+        getButtonColors({
+          customButtonColor,
+          theme: LightTheme,
+          mode,
+          disabled: true,
+        })
+      ).toMatchObject({ backgroundColor: 'transparent' });
+    })
+  );
+
+  (['contained', 'contained-tonal', 'elevated'] as const).forEach((mode) =>
+    it(`should return correct disabled color, for theme version 3, ${mode} mode`, () => {
+      return expect(
+        getButtonColors({
+          customButtonColor,
+          theme: LightTheme,
+          mode,
+          disabled: true,
+        })
+      ).toMatchObject({
+        backgroundColor: LightTheme.colors.onSurface,
+        backgroundOpacity: stateOpacity.pressed,
+      });
+    })
+  );
+
+  (['contained', 'contained-tonal', 'elevated'] as const).forEach((mode) =>
+    it(`should return correct disabled color, for theme version 3, dark theme, ${mode} mode`, () => {
+      return expect(
+        getButtonColors({
+          customButtonColor,
+          theme: DarkTheme,
+          mode,
+          disabled: true,
+        })
+      ).toMatchObject({
+        backgroundColor: DarkTheme.colors.onSurface,
+        backgroundOpacity: stateOpacity.pressed,
+      });
+    })
+  );
+
+  it('should return correct theme color, for theme version 3, elevated mode', () => {
+    expect(
+      getButtonColors({
+        theme: LightTheme,
+        mode: 'elevated',
+      })
+    ).toMatchObject({
+      backgroundColor: LightTheme.colors.surfaceContainerLow,
+    });
+  });
+
+  it('should return correct theme color, for theme version 3, dark theme, elevated mode', () => {
+    expect(
+      getButtonColors({
+        theme: DarkTheme,
+        mode: 'elevated',
+      })
+    ).toMatchObject({
+      backgroundColor: DarkTheme.colors.surfaceContainerLow,
+    });
+  });
+
+  it('should return correct theme color, for theme version 3, contained mode', () => {
+    expect(
+      getButtonColors({
+        theme: LightTheme,
+        mode: 'contained',
+      })
+    ).toMatchObject({
+      backgroundColor: LightTheme.colors.primary,
+    });
+  });
+
+  it('should return correct theme color, for theme version 3, dark theme, contained mode', () => {
+    expect(
+      getButtonColors({
+        theme: DarkTheme,
+        mode: 'contained',
+      })
+    ).toMatchObject({
+      backgroundColor: DarkTheme.colors.primary,
+    });
+  });
+
+  it('should return correct theme color, for theme version 3, contained-tonal mode', () => {
+    expect(
+      getButtonColors({
+        theme: LightTheme,
+        mode: 'contained-tonal',
+      })
+    ).toMatchObject({
+      backgroundColor: LightTheme.colors.secondaryContainer,
+    });
+  });
+
+  it('should return correct theme color, for theme version 3, dark theme, contained-tonal mode', () => {
+    expect(
+      getButtonColors({
+        theme: DarkTheme,
+        mode: 'contained-tonal',
+      })
+    ).toMatchObject({
+      backgroundColor: DarkTheme.colors.secondaryContainer,
+    });
+  });
+
+  (['text', 'outlined'] as const).forEach((mode) =>
+    it(`should return transparent color, for theme version 3, ${mode} mode`, () => {
+      return expect(
+        getButtonColors({
+          theme: LightTheme,
+          mode,
+        })
+      ).toMatchObject({
+        backgroundColor: 'transparent',
+      });
+    })
+  );
+
+  (['text', 'outlined'] as const).forEach((mode) =>
+    it(`should return transparent color, for theme version 3, dark theme, ${mode} mode`, () => {
+      return expect(
+        getButtonColors({
+          theme: DarkTheme,
+          mode,
+        })
+      ).toMatchObject({
+        backgroundColor: 'transparent',
+      });
+    })
+  );
+});
+
+describe('getButtonColors - text color', () => {
+  const customTextColor = '#313131';
+
+  it('should return custom text color no matter what is the theme version, when not disabled', () => {
+    expect(
+      getButtonColors({
+        customTextColor,
+        theme: LightTheme,
+        disabled: false,
+        mode: 'text',
+      })
+    ).toMatchObject({ textColor: customTextColor });
+  });
+
+  it('should return correct disabled text color, for theme version 3, no matter what the mode is', () => {
+    expect(
+      getButtonColors({
+        customTextColor,
+        theme: LightTheme,
+        disabled: true,
+        mode: 'text',
+      })
+    ).toMatchObject({
+      textColor: LightTheme.colors.onSurface,
+      textOpacity: stateOpacity.disabled,
+    });
+  });
+
+  it('should return correct disabled text color, for theme version 3, dark theme, no matter what the mode is', () => {
+    expect(
+      getButtonColors({
+        customTextColor,
+        theme: DarkTheme,
+        disabled: true,
+        mode: 'text',
+      })
+    ).toMatchObject({
+      textColor: DarkTheme.colors.onSurface,
+      textOpacity: stateOpacity.disabled,
+    });
+  });
+
+  (['contained', 'contained-tonal', 'elevated'] as const).forEach((mode) =>
+    it(`should return correct text color for dark prop, for theme version 3, ${mode} mode`, () => {
+      expect(
+        getButtonColors({
+          theme: LightTheme,
+          mode,
+          dark: true,
+        })
+      ).toMatchObject({
+        textColor: white,
+      });
+    })
+  );
+
+  (['outlined', 'text', 'elevated'] as const).forEach((mode) =>
+    it(`should return correct theme text color, for theme version 3, ${mode} mode`, () => {
+      expect(
+        getButtonColors({
+          theme: LightTheme,
+          mode,
+        })
+      ).toMatchObject({
+        textColor: LightTheme.colors.primary,
+      });
+    })
+  );
+
+  (['outlined', 'text', 'elevated'] as const).forEach((mode) =>
+    it(`should return correct theme text color, for theme version 3, dark theme, ${mode} mode`, () => {
+      expect(
+        getButtonColors({
+          theme: DarkTheme,
+          mode,
+        })
+      ).toMatchObject({
+        textColor: DarkTheme.colors.primary,
+      });
+    })
+  );
+
+  it('should return correct theme text color, for theme version 3, contained mode', () => {
+    expect(
+      getButtonColors({
+        theme: LightTheme,
+        mode: 'contained',
+      })
+    ).toMatchObject({
+      textColor: LightTheme.colors.onPrimary,
+    });
+  });
+
+  it('should return correct theme text color, for theme version 3, dark theme, contained mode', () => {
+    expect(
+      getButtonColors({
+        theme: DarkTheme,
+        mode: 'contained',
+      })
+    ).toMatchObject({
+      textColor: DarkTheme.colors.onPrimary,
+    });
+  });
+
+  it('should return correct theme text color, for theme version 3, contained-tonal mode', () => {
+    expect(
+      getButtonColors({
+        theme: LightTheme,
+        mode: 'contained-tonal',
+      })
+    ).toMatchObject({
+      textColor: LightTheme.colors.onSecondaryContainer,
+    });
+  });
+
+  it('should return correct theme text color, for theme version 3, dark theme contained-tonal mode', () => {
+    expect(
+      getButtonColors({
+        theme: DarkTheme,
+        mode: 'contained-tonal',
+      })
+    ).toMatchObject({
+      textColor: DarkTheme.colors.onSecondaryContainer,
+    });
+  });
+});
+
+describe('getButtonColors - border color', () => {
+  it('should return correct border color, for theme version 3, when disabled, outlined mode', () => {
+    expect(
+      getButtonColors({
+        theme: LightTheme,
+        disabled: true,
+        mode: 'outlined',
+      })
+    ).toMatchObject({
+      borderColor: LightTheme.colors.outlineVariant,
+    });
+  });
+
+  it('should return correct border color, for theme version 3, when disabled, dark theme, outlined mode', () => {
+    expect(
+      getButtonColors({
+        theme: DarkTheme,
+        disabled: true,
+        mode: 'outlined',
+      })
+    ).toMatchObject({
+      borderColor: DarkTheme.colors.outlineVariant,
+    });
+  });
+
+  it('should return correct border color, for theme version 3, outlined mode', () => {
+    expect(
+      getButtonColors({
+        theme: LightTheme,
+        mode: 'outlined',
+      })
+    ).toMatchObject({
+      borderColor: LightTheme.colors.outlineVariant,
+    });
+  });
+
+  it('should return correct border color, for theme version 3, dark theme, outlined mode', () => {
+    expect(
+      getButtonColors({
+        theme: DarkTheme,
+        mode: 'outlined',
+      })
+    ).toMatchObject({
+      borderColor: DarkTheme.colors.outlineVariant,
+    });
+  });
+
+  (['text', 'contained', 'contained-tonal', 'elevated'] as const).forEach(
+    (mode) =>
+      it(`should return transparent border, for theme version 3, ${mode} mode`, () => {
+        expect(
+          getButtonColors({
+            theme: LightTheme,
+            mode,
+          })
+        ).toMatchObject({
+          borderColor: 'transparent',
+        });
+      })
+  );
+
+  (['text', 'contained', 'contained-tonal', 'elevated'] as const).forEach(
+    (mode) =>
+      it(`should return transparent border, for theme version 3, dark theme, ${mode} mode`, () => {
+        expect(
+          getButtonColors({
+            theme: DarkTheme,
+            mode,
+          })
+        ).toMatchObject({
+          borderColor: 'transparent',
+        });
+      })
+  );
+});
+
+describe('getButtonColors - border width', () => {
+  it('should return correct border width, for theme version 3, outlined mode', () => {
+    expect(
+      getButtonColors({
+        theme: LightTheme,
+        mode: 'outlined',
+      })
+    ).toMatchObject({
+      borderWidth: 1,
+    });
+  });
+
+  (['text', 'contained', 'contained-tonal', 'elevated'] as const).forEach(
+    (mode) =>
+      it(`should return correct border width, for ${mode} mode`, () => {
+        expect(
+          getButtonColors({
+            theme: LightTheme,
+            mode,
+          })
+        ).toMatchObject({
+          borderWidth: 0,
+        });
+      })
+  );
+});

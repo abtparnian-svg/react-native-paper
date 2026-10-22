@@ -1,2 +1,29 @@
+# Dependencies
+/node_modules
+
+# Production
+/build
+/test-results
+/visual/output
+
+# Generated files
+.cache-loader
+/public/llms.txt
+
+# Misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# legacy
 dist/
 .linaria-cache/
+
+# Yarn
+.yarn/*

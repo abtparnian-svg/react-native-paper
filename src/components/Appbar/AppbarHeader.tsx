@@ -1,25 +1,16 @@
 import * as React from 'react';
-import {
-  Platform,
-  SafeAreaView,
-  StyleProp,
-  StyleSheet,
-  View,
-  ViewStyle,
-} from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
+import type { ColorValue, StyleProp } from 'react-native';
 
-import { APPROX_STATUSBAR_HEIGHT } from '../../constants';
-import { withInternalTheme } from '../../core/theming';
-import shadow from '../../styles/shadow';
-import type { InternalTheme } from '../../types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { Appbar } from './Appbar';
-import {
-  DEFAULT_APPBAR_HEIGHT,
-  getAppbarColor,
-  modeAppbarHeight,
-} from './utils';
+import type { AppbarStyle, Props as AppbarProps } from './Appbar';
+import { getAppbarBackgroundColor, modeAppbarHeight } from './utils';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
 
-export type Props = React.ComponentProps<typeof Appbar> & {
+export type Props = Omit<AppbarProps, 'safeAreaInsets' | 'style'> & {
   /**
    * Whether the background color is a dark color. A dark header will render light text and vice-versa.
    */
@@ -39,7 +30,7 @@ export type Props = React.ComponentProps<typeof Appbar> & {
    * @supported Available in v5.x with theme version 3
    *
    * Mode of the Appbar.
-   * - `small` - Appbar with default height (56).
+   * - `small` - Appbar with default height (64).
    * - `medium` - Appbar with medium height (112).
    * - `large` - Appbar with large height (152).
    * - `center-aligned` - Appbar with default height and center-aligned title.
@@ -53,32 +44,13 @@ export type Props = React.ComponentProps<typeof Appbar> & {
   /**
    * @optional
    */
-  theme: InternalTheme;
-  style?: StyleProp<ViewStyle>;
+  theme?: ThemeProp;
+  style?: StyleProp<AppbarStyle>;
 };
 
 /**
  * A component to use as a header at the top of the screen.
  * It can contain the screen title, controls such as navigation buttons, menu button etc.
- *
- * <div class="screenshots">
- *   <figure>
- *     <img class="small" src="screenshots/appbar-small.png" />
- *     <figcaption>small</figcaption>
- *   </figure>
- *   <figure>
- *     <img class="small" src="screenshots/appbar-medium.png" />
- *     <figcaption>medium</figcaption>
- *   </figure>
- *   <figure>
- *     <img class="small" src="screenshots/appbar-large.png" />
- *     <figcaption>large</figcaption>
- *   </figure>
- *  <figure>
- *     <img class="small" src="screenshots/appbar-center-aligned.png" />
- *     <figcaption>center-aligned</figcaption>
- *   </figure>
- * </div>
  *
  * ## Usage
  * ```js
@@ -112,64 +84,63 @@ const AppbarHeader = ({
   dark,
   mode = Platform.OS === 'ios' ? 'center-aligned' : 'small',
   elevated = false,
+  theme: themeOverrides,
+  testID,
   ...rest
 }: Props) => {
-  const { isV3 } = rest.theme;
+  const theme = useInternalTheme(themeOverrides);
 
+  const flattenedStyle = StyleSheet.flatten(style);
   const {
-    height = isV3 ? modeAppbarHeight[mode] : DEFAULT_APPBAR_HEIGHT,
-    elevation = isV3 ? (elevated ? 2 : 0) : 4,
+    height = modeAppbarHeight[mode],
     backgroundColor: customBackground,
-    zIndex = isV3 && elevated ? 1 : 0,
+    zIndex = elevated ? 1 : 0,
     ...restStyle
-  }: ViewStyle = StyleSheet.flatten(style) || {};
+  } = (flattenedStyle || {}) as Exclude<typeof flattenedStyle, number> & {
+    height?: AppbarStyle['height'];
+    backgroundColor?: ColorValue;
+    zIndex?: number;
+  };
 
-  const backgroundColor = getAppbarColor(
-    rest.theme,
-    elevation,
-    customBackground,
-    elevated
+  const backgroundColor = getAppbarBackgroundColor(
+    theme,
+    elevated,
+    customBackground
   );
 
-  // Let the user override the behaviour
-  const Wrapper = typeof statusBarHeight === 'number' ? View : SafeAreaView;
+  const { top, left, right } = useSafeAreaInsets();
+  const topInset = statusBarHeight ?? top;
+  const horizontalInset = Math.max(left, right);
+  const headerHeight = typeof height === 'number' ? height + topInset : height;
+
   return (
-    <Wrapper
-      style={
-        [
-          {
-            backgroundColor,
-            zIndex,
-            elevation,
-            paddingTop: statusBarHeight ?? APPROX_STATUSBAR_HEIGHT,
-          },
-          shadow(elevation),
-        ] as StyleProp<ViewStyle>
-      }
-    >
-      <Appbar
-        style={[{ height, backgroundColor }, styles.appbar, restStyle]}
-        dark={dark}
-        {...(isV3 && {
-          mode,
-        })}
-        {...rest}
-      />
-    </Wrapper>
+    <Appbar
+      testID={testID}
+      style={[
+        {
+          height: headerHeight,
+          backgroundColor,
+          zIndex,
+        },
+        restStyle,
+      ]}
+      safeAreaInsets={{
+        top: topInset,
+        left: horizontalInset,
+        right: horizontalInset,
+      }}
+      dark={dark}
+      elevated={elevated}
+      {...rest}
+      mode={mode}
+      theme={theme}
+    />
   );
 };
 
 AppbarHeader.displayName = 'Appbar.Header';
 
-const styles = StyleSheet.create({
-  appbar: {
-    elevation: 0,
-  },
-});
-
-export default withInternalTheme(AppbarHeader);
+export default AppbarHeader;
 
 // @component-docs ignore-next-line
-const AppbarHeaderWithTheme = withInternalTheme(AppbarHeader);
-// @component-docs ignore-next-line
-export { AppbarHeaderWithTheme as AppbarHeader };
+export { AppbarHeader };

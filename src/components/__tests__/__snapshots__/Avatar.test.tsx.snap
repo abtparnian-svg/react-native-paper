@@ -1,0 +1,349 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`renders avatar with icon 1`] = `
+<View
+  style={
+    [
+      {
+        "backgroundColor": "rgba(103, 80, 164, 1)",
+        "borderRadius": 32,
+        "height": 64,
+        "width": 64,
+      },
+      {
+        "alignItems": "center",
+        "justifyContent": "center",
+      },
+      {},
+    ]
+  }
+>
+  <Text
+    accessibilityElementsHidden={true}
+    importantForAccessibility="no-hide-descendants"
+    pointerEvents="none"
+    selectable={false}
+    style={
+      [
+        {
+          "color": "#ffffff",
+          "fontSize": 38.4,
+        },
+        [
+          {
+            "lineHeight": 38.4,
+            "transform": [
+              {
+                "scaleX": 1,
+              },
+            ],
+          },
+          {
+            "backgroundColor": "transparent",
+          },
+        ],
+      ]
+    }
+  >
+    information
+  </Text>
+</View>
+`;
+
+exports[`renders avatar with icon and custom background color 1`] = `
+<View
+  style={
+    [
+      {
+        "backgroundColor": "#f44336",
+        "borderRadius": 32,
+        "height": 64,
+        "width": 64,
+      },
+      {
+        "alignItems": "center",
+        "justifyContent": "center",
+      },
+      {},
+    ]
+  }
+>
+  <Text
+    accessibilityElementsHidden={true}
+    importantForAccessibility="no-hide-descendants"
+    pointerEvents="none"
+    selectable={false}
+    style={
+      [
+        {
+          "color": "#ffffff",
+          "fontSize": 38.4,
+        },
+        [
+          {
+            "lineHeight": 38.4,
+            "transform": [
+              {
+                "scaleX": 1,
+              },
+            ],
+          },
+          {
+            "backgroundColor": "transparent",
+          },
+        ],
+      ]
+    }
+  >
+    information
+  </Text>
+</View>
+`;
+
+exports[`renders avatar with image 1`] = `
+<View
+  style={
+    [
+      {
+        "backgroundColor": "rgba(103, 80, 164, 1)",
+        "borderRadius": 32,
+        "height": 64,
+        "width": 64,
+      },
+      undefined,
+    ]
+  }
+>
+  <Image
+    accessibilityIgnoresInvertColors={true}
+    source={
+      {
+        "uri": "avatar.png",
+      }
+    }
+    style={
+      {
+        "borderRadius": 32,
+        "height": 64,
+        "width": 64,
+      }
+    }
+  />
+</View>
+`;
+
+exports[`renders avatar with text 1`] = `
+<View
+  style={
+    [
+      {
+        "backgroundColor": "rgba(103, 80, 164, 1)",
+        "borderRadius": 32,
+        "height": 64,
+        "width": 64,
+      },
+      {
+        "alignItems": "center",
+        "justifyContent": "center",
+      },
+      {},
+    ]
+  }
+>
+  <Text
+    numberOfLines={1}
+    style={
+      [
+        {
+          "textAlign": "left",
+        },
+        {
+          "color": "rgba(29, 27, 32, 1)",
+          "fontFamily": "System",
+          "fontWeight": "400",
+          "letterSpacing": 0,
+        },
+        {
+          "writingDirection": "ltr",
+        },
+        [
+          {
+            "textAlign": "center",
+            "textAlignVertical": "center",
+          },
+          {
+            "color": "#ffffff",
+            "fontSize": 32,
+            "lineHeight": 64,
+          },
+          undefined,
+        ],
+      ]
+    }
+  >
+    XD
+  </Text>
+</View>
+`;
+
+exports[`renders avatar with text and custom background color 1`] = `
+<View
+  style={
+    [
+      {
+        "backgroundColor": "#f44336",
+        "borderRadius": 32,
+        "height": 64,
+        "width": 64,
+      },
+      {
+        "alignItems": "center",
+        "justifyContent": "center",
+      },
+      {},
+    ]
+  }
+>
+  <Text
+    numberOfLines={1}
+    style={
+      [
+        {
+          "textAlign": "left",
+        },
+        {
+          "color": "rgba(29, 27, 32, 1)",
+          "fontFamily": "System",
+          "fontWeight": "400",
+          "letterSpacing": 0,
+        },
+        {
+          "writingDirection": "ltr",
+        },
+        [
+          {
+            "textAlign": "center",
+            "textAlignVertical": "center",
+          },
+          {
+            "color": "#ffffff",
+            "fontSize": 32,
+            "lineHeight": 64,
+          },
+          undefined,
+        ],
+      ]
+    }
+  >
+    XD
+  </Text>
+</View>
+`;
+
+exports[`renders avatar with text and custom colors 1`] = `
+<View
+  style={
+    [
+      {
+        "backgroundColor": "rgba(103, 80, 164, 1)",
+        "borderRadius": 32,
+        "height": 64,
+        "width": 64,
+      },
+      {
+        "alignItems": "center",
+        "justifyContent": "center",
+      },
+      {},
+    ]
+  }
+>
+  <Text
+    numberOfLines={1}
+    style={
+      [
+        {
+          "textAlign": "left",
+        },
+        {
+          "color": "rgba(29, 27, 32, 1)",
+          "fontFamily": "System",
+          "fontWeight": "400",
+          "letterSpacing": 0,
+        },
+        {
+          "writingDirection": "ltr",
+        },
+        [
+          {
+            "textAlign": "center",
+            "textAlignVertical": "center",
+          },
+          {
+            "color": "#FFFFFF",
+            "fontSize": 32,
+            "lineHeight": 64,
+          },
+          undefined,
+        ],
+      ]
+    }
+  >
+    XD
+  </Text>
+</View>
+`;
+
+exports[`renders avatar with text and custom size 1`] = `
+<View
+  style={
+    [
+      {
+        "backgroundColor": "rgba(103, 80, 164, 1)",
+        "borderRadius": 48,
+        "height": 96,
+        "width": 96,
+      },
+      {
+        "alignItems": "center",
+        "justifyContent": "center",
+      },
+      {},
+    ]
+  }
+>
+  <Text
+    numberOfLines={1}
+    style={
+      [
+        {
+          "textAlign": "left",
+        },
+        {
+          "color": "rgba(29, 27, 32, 1)",
+          "fontFamily": "System",
+          "fontWeight": "400",
+          "letterSpacing": 0,
+        },
+        {
+          "writingDirection": "ltr",
+        },
+        [
+          {
+            "textAlign": "center",
+            "textAlignVertical": "center",
+          },
+          {
+            "color": "#ffffff",
+            "fontSize": 48,
+            "lineHeight": 96,
+          },
+          undefined,
+        ],
+      ]
+    }
+  >
+    XD
+  </Text>
+</View>
+`;

@@ -1,23 +1,26 @@
 import * as React from 'react';
-import {
+import { StyleSheet, View } from 'react-native';
+import type {
+  GestureResponderEvent,
+  PressableAndroidRippleConfig,
   StyleProp,
-  StyleSheet,
   TextStyle,
-  View,
   ViewStyle,
 } from 'react-native';
 
-import { withInternalTheme } from '../../core/theming';
-import type { InternalTheme } from '../../types';
-import Icon, { IconSource } from '../Icon';
-import TouchableRipple from '../TouchableRipple/TouchableRipple';
-import Text from '../Typography/Text';
 import {
   getContentMaxWidth,
   getMenuItemColor,
   MAX_WIDTH,
   MIN_WIDTH,
 } from './utils';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
+import Icon from '../Icon';
+import type { IconSource } from '../Icon';
+import TouchableRipple from '../TouchableRipple/TouchableRipple';
+import type { Props as TouchableRippleProps } from '../TouchableRipple/TouchableRipple';
+import Text from '../Typography/Text';
 
 export type Props = {
   /**
@@ -43,23 +46,47 @@ export type Props = {
   /**
    * @supported Available in v5.x with theme version 3
    *
-   * Sets min height with densed layout.
+   * Sets min height with dense layout.
    */
   dense?: boolean;
   /**
+   * Type of background drawable to display the feedback (Android).
+   * https://reactnative.dev/docs/pressable#rippleconfig
+   */
+  background?: PressableAndroidRippleConfig;
+  /**
    * Function to execute on press.
    */
-  onPress?: () => void;
+  onPress?: (e: GestureResponderEvent) => void;
   /**
+   * Specifies the largest possible scale a title font can reach.
+   */
+  titleMaxFontSizeMultiplier?: number;
+  /**
+   * Style that is passed to the root TouchableRipple container.
    * @optional
    */
   style?: StyleProp<ViewStyle>;
+  /**
+   * Style that is passed to the outermost container that wraps the entire content, including leading and trailing icons and title text.
+   */
+  containerStyle?: StyleProp<ViewStyle>;
+  /**
+   * Style that is passed to the content container, which wraps the title text.
+   */
   contentStyle?: StyleProp<ViewStyle>;
+  /**
+   * Style that is passed to the Title element.
+   */
   titleStyle?: StyleProp<TextStyle>;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
+  /**
+   * Sets additional distance outside of element in which a press can be detected.
+   */
+  hitSlop?: TouchableRippleProps['hitSlop'];
   /**
    * TestID used for testing purposes
    */
@@ -67,17 +94,28 @@ export type Props = {
   /**
    * Accessibility label for the Touchable. This is read by the screen reader when the user taps the component.
    */
-  accessibilityLabel?: string;
+  'aria-label'?: string;
+  /**
+   * Indicates whether the element is checked. Accepts `true`, `false`,
+   * or `'mixed'` for an indeterminate state.
+   */
+  'aria-checked'?: boolean | 'mixed';
+  /**
+   * Indicates whether the element is selected.
+   */
+  'aria-selected'?: boolean;
+  /**
+   * Indicates whether the element is currently busy (e.g. loading).
+   */
+  'aria-busy'?: boolean;
+  /**
+   * Indicates whether the element's controlled content is expanded.
+   */
+  'aria-expanded'?: boolean;
 };
 
 /**
  * A component to show a single list item inside a Menu.
- *
- * <div class="screenshots">
- *   <figure>
- *     <img class="medium" src="screenshots/menu-item.png" />
- *   </figure>
- * </div>
  *
  * ## Usage
  * ```js
@@ -104,28 +142,34 @@ const MenuItem = ({
   dense,
   title,
   disabled,
+  background,
   onPress,
   style,
+  containerStyle,
   contentStyle,
-  testID,
   titleStyle,
-  accessibilityLabel,
-  theme,
+  testID,
+  'aria-label': ariaLabel,
+  'aria-checked': ariaChecked,
+  'aria-selected': ariaSelected,
+  'aria-busy': ariaBusy,
+  'aria-expanded': ariaExpanded,
+  theme: themeOverrides,
+  titleMaxFontSizeMultiplier = 1.5,
+  hitSlop,
 }: Props) => {
-  const { titleColor, iconColor, underlayColor } = getMenuItemColor({
+  const theme = useInternalTheme(themeOverrides);
+  const { titleColor, iconColor, contentOpacity } = getMenuItemColor({
     theme,
     disabled,
   });
-  const { isV3 } = theme;
+  const containerPadding = 12;
 
-  const containerPadding = isV3 ? 12 : 8;
+  const iconWidth = 24;
 
-  const iconWidth = isV3 ? 24 : 40;
-
-  const minWidth = MIN_WIDTH - (isV3 ? 12 : 16);
+  const minWidth = MIN_WIDTH - 12;
 
   const maxWidth = getContentMaxWidth({
-    isV3,
     iconWidth,
     leadingIcon,
     trailingIcon,
@@ -133,7 +177,7 @@ const MenuItem = ({
 
   const titleTextStyle = {
     color: titleColor,
-    ...(isV3 ? theme.fonts.bodyLarge : {}),
+    ...theme.fonts.bodyLarge,
   };
 
   return (
@@ -147,29 +191,27 @@ const MenuItem = ({
       onPress={onPress}
       disabled={disabled}
       testID={testID}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityRole="menuitem"
-      accessibilityState={{ disabled }}
-      underlayColor={underlayColor}
+      background={background}
+      aria-label={ariaLabel}
+      role="menuitem"
+      aria-disabled={disabled}
+      aria-checked={ariaChecked}
+      aria-selected={ariaSelected}
+      aria-busy={ariaBusy}
+      aria-expanded={ariaExpanded}
+      hitSlop={hitSlop}
     >
-      <View style={styles.row}>
+      <View style={[styles.row, { opacity: contentOpacity }, containerStyle]}>
         {leadingIcon ? (
-          <View
-            style={[!isV3 && styles.item, { width: iconWidth }]}
-            pointerEvents="box-none"
-          >
+          <View style={[{ width: iconWidth }]} pointerEvents="box-none">
             <Icon source={leadingIcon} size={24} color={iconColor} />
           </View>
         ) : null}
         <View
           style={[
-            !isV3 && styles.item,
             styles.content,
             { minWidth, maxWidth },
-            isV3 &&
-              (leadingIcon
-                ? styles.md3LeadingIcon
-                : styles.md3WithoutLeadingIcon),
+            leadingIcon ? styles.md3LeadingIcon : styles.md3WithoutLeadingIcon,
             contentStyle,
           ]}
           pointerEvents="none"
@@ -178,16 +220,14 @@ const MenuItem = ({
             variant="bodyLarge"
             selectable={false}
             numberOfLines={1}
-            style={[!isV3 && styles.title, titleTextStyle, titleStyle]}
+            style={[titleTextStyle, titleStyle]}
+            maxFontSizeMultiplier={titleMaxFontSizeMultiplier}
           >
             {title}
           </Text>
         </View>
-        {isV3 && trailingIcon ? (
-          <View
-            style={[!isV3 && styles.item, { width: iconWidth }]}
-            pointerEvents="box-none"
-          >
+        {trailingIcon ? (
+          <View style={[{ width: iconWidth }]} pointerEvents="box-none">
             <Icon source={trailingIcon} size={24} color={iconColor} />
           </View>
         ) : null}
@@ -211,12 +251,6 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
   },
-  title: {
-    fontSize: 16,
-  },
-  item: {
-    marginHorizontal: 8,
-  },
   content: {
     justifyContent: 'center',
   },
@@ -228,4 +262,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default withInternalTheme(MenuItem);
+export default MenuItem;

@@ -1,19 +1,19 @@
-import * as React from 'react';
-import {
+import { StyleSheet, View } from 'react-native';
+import type {
+  GestureResponderEvent,
+  PressableAndroidRippleConfig,
   StyleProp,
-  StyleSheet,
   TextStyle,
-  View,
   ViewStyle,
 } from 'react-native';
 
-import { withInternalTheme } from '../../core/theming';
-import type { InternalTheme, MD3TypescaleKey } from '../../types';
-import TouchableRipple from '../TouchableRipple/TouchableRipple';
-import Text from '../Typography/Text';
 import Checkbox from './Checkbox';
-import CheckboxAndroid from './CheckboxAndroid';
-import CheckboxIOS from './CheckboxIOS';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp, TypescaleKey } from '../../theme/types';
+import { getStateLayer } from '../../theme/utils/state';
+import TouchableRipple from '../TouchableRipple/TouchableRipple';
+import type { Props as TouchableRippleProps } from '../TouchableRipple/TouchableRipple';
+import Text from '../Typography/Text';
 
 export type Props = {
   /**
@@ -31,11 +31,20 @@ export type Props = {
   /**
    * Function to execute on press.
    */
-  onPress?: () => void;
+  onPress?: (e: GestureResponderEvent) => void;
+  /**
+   * Function to execute on long press.
+   */
+  onLongPress?: (e: GestureResponderEvent) => void;
+  /**
+   * Type of background drawable to display the feedback (Android).
+   * https://reactnative.dev/docs/pressable#rippleconfig
+   */
+  background?: PressableAndroidRippleConfig;
   /**
    * Accessibility label for the touchable. This is read by the screen reader when the user taps the touchable.
    */
-  accessibilityLabel?: string;
+  'aria-label'?: string;
   /**
    * Custom color for unchecked checkbox.
    */
@@ -48,6 +57,10 @@ export type Props = {
    * Additional styles for container View.
    */
   style?: StyleProp<ViewStyle>;
+  /**
+   * Specifies the largest possible scale a label font can reach.
+   */
+  labelMaxFontSizeMultiplier?: number;
   /**
    * Style that is passed to Label element.
    */
@@ -68,11 +81,11 @@ export type Props = {
    *
    *  Body: `bodyLarge`, `bodyMedium`, `bodySmall`
    */
-  labelVariant?: keyof typeof MD3TypescaleKey;
+  labelVariant?: TypescaleKey;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
   /**
    * testID to be used on tests.
    */
@@ -82,10 +95,9 @@ export type Props = {
    */
   position?: 'leading' | 'trailing';
   /**
-   * Whether `<Checkbox.Android />` or `<Checkbox.IOS />` should be used.
-   * Left undefined `<Checkbox />` will be used.
+   * Sets additional distance outside of element in which a press can be detected.
    */
-  mode?: 'android' | 'ios';
+  hitSlop?: TouchableRippleProps['hitSlop'];
 };
 
 /**
@@ -112,50 +124,47 @@ const CheckboxItem = ({
   status,
   label,
   onPress,
+  onLongPress,
   labelStyle,
-  theme,
+  theme: themeOverrides,
   testID,
-  mode,
   position = 'trailing',
-  accessibilityLabel = label,
+  'aria-label': ariaLabel = label,
   disabled,
   labelVariant = 'bodyLarge',
+  labelMaxFontSizeMultiplier = 1.5,
+  background,
+  hitSlop,
   ...props
 }: Props) => {
+  const theme = useInternalTheme(themeOverrides);
   const checkboxProps = { ...props, status, theme, disabled };
   const isLeading = position === 'leading';
-  let checkbox;
+  // The outer TouchableRipple below is the interactable element + a11y
+  // checkbox; the inner Checkbox is purely visual, so we exclude it from
+  // the accessibility tree to avoid duplicate `checked` states.
+  const checkbox = <Checkbox {...checkboxProps} accessible={false} />;
 
-  if (mode === 'android') {
-    checkbox = <CheckboxAndroid {...checkboxProps} />;
-  } else if (mode === 'ios') {
-    checkbox = <CheckboxIOS {...checkboxProps} />;
-  } else {
-    checkbox = <Checkbox {...checkboxProps} />;
-  }
-
-  const textColor = theme.isV3 ? theme.colors.onSurface : theme.colors.text;
-  const disabledTextColor = theme.isV3
-    ? theme.colors.onSurfaceDisabled
-    : theme.colors.disabled;
   const textAlign = isLeading ? 'right' : 'left';
 
-  const computedStyle = {
-    color: disabled ? disabledTextColor : textColor,
+  const computedStyle: TextStyle = {
+    ...getStateLayer(theme, 'onSurface', disabled ? 'disabled' : 'enabled'),
     textAlign,
-  } as TextStyle;
+  };
 
   return (
     <TouchableRipple
-      accessibilityLabel={accessibilityLabel}
-      accessibilityRole="checkbox"
-      accessibilityState={{
-        checked: status === 'checked',
-        disabled,
-      }}
+      aria-label={ariaLabel}
+      role="checkbox"
+      aria-checked={status === 'indeterminate' ? 'mixed' : status === 'checked'}
+      aria-disabled={disabled}
       onPress={onPress}
+      onLongPress={onLongPress}
       testID={testID}
       disabled={disabled}
+      theme={theme}
+      background={background}
+      hitSlop={hitSlop}
     >
       <View
         style={[styles.container, style]}
@@ -165,12 +174,8 @@ const CheckboxItem = ({
         {isLeading && checkbox}
         <Text
           variant={labelVariant}
-          style={[
-            styles.label,
-            !theme.isV3 && styles.font,
-            computedStyle,
-            labelStyle,
-          ]}
+          maxFontSizeMultiplier={labelMaxFontSizeMultiplier}
+          style={[styles.label, computedStyle, labelStyle]}
         >
           {label}
         </Text>
@@ -182,12 +187,10 @@ const CheckboxItem = ({
 
 CheckboxItem.displayName = 'Checkbox.Item';
 
-export default withInternalTheme(CheckboxItem);
+export default CheckboxItem;
 
 // @component-docs ignore-next-line
-const CheckboxItemWithTheme = withInternalTheme(CheckboxItem);
-// @component-docs ignore-next-line
-export { CheckboxItemWithTheme as CheckboxItem };
+export { CheckboxItem };
 
 const styles = StyleSheet.create({
   container: {
@@ -200,8 +203,5 @@ const styles = StyleSheet.create({
   label: {
     flexShrink: 1,
     flexGrow: 1,
-  },
-  font: {
-    fontSize: 16,
   },
 });

@@ -1,12 +1,13 @@
-const path = require('path');
-const { spawnSync } = require('child_process');
+const { expect } = require('@jest/globals');
 const { create } = require('babel-test');
+const { spawnSync } = require('child_process');
 const { toMatchFile } = require('jest-file-snapshot');
+const path = require('path');
 
 expect.extend({ toMatchFile });
 
 spawnSync('node', [
-  path.resolve(__dirname, '../../../scripts/generate-mappings.js'),
+  path.resolve(__dirname, '../../../scripts/generate-mappings.ts'),
 ]);
 
 const { fixtures } = create({

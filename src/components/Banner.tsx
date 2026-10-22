@@ -1,16 +1,38 @@
 import * as React from 'react';
-import { Animated, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import type {
+  LayoutChangeEvent,
+  StyleProp,
+  ViewProps,
+  ViewStyle,
+} from 'react-native';
 
-import { withInternalTheme } from '../core/theming';
-import type { $RemoveChildren, InternalTheme } from '../types';
+import Animated, {
+  Easing,
+  interpolate,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import useLatestCallback from 'use-latest-callback';
+
 import Button from './Button/Button';
-import Icon, { IconSource } from './Icon';
+import type { Props as ButtonProps } from './Button/Button';
+import Icon from './Icon';
+import type { IconSource } from './Icon';
 import Surface from './Surface';
+import type { SurfaceStyle } from './Surface';
 import Text from './Typography/Text';
+import { useInternalTheme } from '../core/theming';
+import type { Elevation, ThemeProp } from '../theme/types';
 
 const DEFAULT_MAX_WIDTH = 960;
 
-export type Props = $RemoveChildren<typeof Surface> & {
+type AnimationFinishedCallback = (result: { finished: boolean }) => void;
+
+export type Props = Omit<ViewProps, 'style'> & {
   /**
    * Whether banner is currently visible.
    */
@@ -35,7 +57,7 @@ export type Props = $RemoveChildren<typeof Surface> & {
   actions?: Array<
     {
       label: string;
-    } & Omit<React.ComponentProps<typeof Button>, 'children'>
+    } & Omit<React.PropsWithoutRef<ButtonProps>, 'children'>
   >;
   /**
    * Style of banner's inner content.
@@ -46,42 +68,31 @@ export type Props = $RemoveChildren<typeof Surface> & {
    * @supported Available in v5.x with theme version 3
    * Changes Banner shadow and background on iOS and Android.
    */
-  elevation?: 0 | 1 | 2 | 3 | 4 | 5 | Animated.Value;
-  style?: StyleProp<ViewStyle>;
+  elevation?: Elevation;
+  /**
+   * Specifies the largest possible scale a text font can reach.
+   */
+  maxFontSizeMultiplier?: number;
+  style?: StyleProp<SurfaceStyle>;
   ref?: React.RefObject<View>;
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
   /**
    * @optional
    * Optional callback that will be called after the opening animation finished running normally
    */
-  onShowAnimationFinished?: Animated.EndCallback;
+  onShowAnimationFinished?: AnimationFinishedCallback;
   /**
    * @optional
    * Optional callback that will be called after the closing animation finished running normally
    */
-  onHideAnimationFinished?: Animated.EndCallback;
-};
-
-type NativeEvent = {
-  nativeEvent: {
-    layout: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    };
-  };
+  onHideAnimationFinished?: AnimationFinishedCallback;
 };
 
 /**
  * Banner displays a prominent message and related actions.
- *
- * <div class="screenshots">
- *   <img class="small" src="screenshots/banner.gif" />
- * </div>
  *
  * ## Usage
  * ```js
@@ -132,14 +143,17 @@ const Banner = ({
   contentStyle,
   elevation = 1,
   style,
-  theme,
+  theme: themeOverrides,
   onShowAnimationFinished = () => {},
   onHideAnimationFinished = () => {},
+  maxFontSizeMultiplier,
   ...rest
 }: Props) => {
-  const { current: position } = React.useRef<Animated.Value>(
-    new Animated.Value(visible ? 1 : 0)
-  );
+  const theme = useInternalTheme(themeOverrides);
+  const { colors } = theme;
+
+  const position = useSharedValue(visible ? 1 : 0);
+
   const [layout, setLayout] = React.useState<{
     height: number;
     measured: boolean;
@@ -148,27 +162,39 @@ const Banner = ({
     measured: false,
   });
 
+  const showCallback = useLatestCallback(onShowAnimationFinished);
+  const hideCallback = useLatestCallback(onHideAnimationFinished);
+
   const { scale } = theme.animation;
+  const animationDuration = (visible ? 250 : 200) * scale;
 
   React.useEffect(() => {
-    if (visible) {
-      // show
-      Animated.timing(position, {
-        duration: 250 * scale,
-        toValue: 1,
-        useNativeDriver: false,
-      }).start(onShowAnimationFinished);
-    } else {
-      // hide
-      Animated.timing(position, {
-        duration: 200 * scale,
-        toValue: 0,
-        useNativeDriver: false,
-      }).start(onHideAnimationFinished);
-    }
-  }, [visible, position, scale]);
+    const callback = visible ? showCallback : hideCallback;
 
-  const handleLayout = ({ nativeEvent }: NativeEvent) => {
+    position.value = withTiming(
+      visible ? 1 : 0,
+      {
+        duration: animationDuration,
+        easing: Easing.inOut(Easing.ease),
+        reduceMotion: ReduceMotion.Never,
+      },
+      (finished) => scheduleOnRN(callback, { finished: finished ?? false })
+    );
+  }, [animationDuration, hideCallback, position, showCallback, visible]);
+
+  const surfaceStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(position.value, [0, 0.1, 1], [0, 1, 1]),
+  }));
+
+  const spacerStyle = useAnimatedStyle(() => ({
+    height: position.value * layout.height,
+  }));
+
+  const contentAnimationStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: (position.value - 1) * layout.height }],
+  }));
+
+  const handleLayout = ({ nativeEvent }: LayoutChangeEvent) => {
     const { height } = nativeEvent.layout;
     setLayout({ height, measured: true });
   };
@@ -180,34 +206,28 @@ const Banner = ({
   // Once we have the height, we apply the height to the spacer and switch the banner to position: absolute
   // We need this because we need to move the content below as if banner's height was being animated
   // However we can't animated banner's height directly as it'll also resize the content inside
-  const height = Animated.multiply(position, layout.height);
-
-  const translateY = Animated.multiply(
-    Animated.add(position, -1),
-    layout.height
-  );
   return (
     <Surface
       {...rest}
-      style={[!theme.isV3 && styles.elevation, style]}
+      style={[surfaceStyle, style]}
       theme={theme}
-      {...(theme.isV3 && { elevation })}
+      elevation={elevation}
     >
       <View style={[styles.wrapper, contentStyle]}>
-        <Animated.View style={{ height }} />
+        <Animated.View style={spacerStyle} />
         <Animated.View
           onLayout={handleLayout}
           style={[
             layout.measured || !visible
               ? // If we have measured banner's height or it's invisible,
                 // Position it absolutely, the layout will be taken care of the spacer
-                [styles.absolute, { transform: [{ translateY }] }]
+                [styles.absolute, contentAnimationStyle]
               : // Otherwise position it normally
                 null,
             !layout.measured && !visible
               ? // If we haven't measured banner's height yet and it's invisible,
                 // hide it with opacity: 0 so user doesn't see it
-                { opacity: 0 }
+                styles.transparent
               : null,
           ]}
         >
@@ -218,16 +238,16 @@ const Banner = ({
               </View>
             ) : null}
             <Text
+              variant="bodyMedium"
               style={[
                 styles.message,
                 {
-                  color: theme.isV3
-                    ? theme.colors.onSurface
-                    : theme.colors.text,
+                  color: colors.onSurface,
                 },
               ]}
-              accessibilityLiveRegion={visible ? 'polite' : 'none'}
-              accessibilityRole="alert"
+              aria-live={visible ? 'polite' : 'off'}
+              role="alert"
+              maxFontSizeMultiplier={maxFontSizeMultiplier}
             >
               {children}
             </Text>
@@ -235,11 +255,12 @@ const Banner = ({
           <View style={styles.actions}>
             {actions.map(({ label, ...others }, i) => (
               <Button
-                key={/* eslint-disable-line react/no-array-index-key */ i}
+                key={i}
                 compact
                 mode="text"
                 style={styles.button}
-                textColor={theme.colors?.primary}
+                textColor={colors.primary}
+                theme={theme}
                 {...others}
               >
                 {label}
@@ -286,9 +307,9 @@ const styles = StyleSheet.create({
   button: {
     margin: 4,
   },
-  elevation: {
-    elevation: 1,
+  transparent: {
+    opacity: 0,
   },
 });
 
-export default withInternalTheme(Banner);
+export default Banner;

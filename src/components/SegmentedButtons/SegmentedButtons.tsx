@@ -1,23 +1,23 @@
-import * as React from 'react';
-import {
+import { StyleSheet, View } from 'react-native';
+import type {
   GestureResponderEvent,
   StyleProp,
-  StyleSheet,
-  View,
+  TextStyle,
   ViewStyle,
 } from 'react-native';
 
-import { useTheme } from '../../core/theming';
-import type { IconSource } from '../Icon';
 import SegmentedButtonItem from './SegmentedButtonItem';
 import { getDisabledSegmentedButtonStyle } from './utils';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
+import type { IconSource } from '../Icon';
 
-type ConditionalValue =
+type ConditionalValue<T extends string = string> =
   | {
       /**
-       * Array of the currently selected segmented button values.
+       * Currently selected segmented button value or values.
        */
-      value: string[];
+      value: T[];
       /**
        * Support multiple selected options.
        */
@@ -25,13 +25,13 @@ type ConditionalValue =
       /**
        * Function to execute on selection change
        */
-      onValueChange: (value: string[]) => void;
+      onValueChange: (value: T[]) => void;
     }
   | {
       /**
-       * Value of the currently selected segmented button.
+       * Currently selected segmented button value or values.
        */
-      value: string;
+      value: T;
       /**
        * Support multiple selected options.
        */
@@ -39,17 +39,19 @@ type ConditionalValue =
       /**
        * Function to execute on selection change
        */
-      onValueChange: (value: string) => void;
+      onValueChange: (value: T) => void;
     };
 
-export type Props = {
+export type Props<T extends string = string> = {
   /**
    * Buttons to display as options in toggle button.
    * Button should contain the following properties:
    * - `value`: value of button (required)
    * - `icon`: icon to display for the item
    * - `disabled`: whether the button is disabled
-   * - `accessibilityLabel`: acccessibility label for the button. This is read by the screen reader when the user taps the button.
+   * - `aria-label`: accessibility label for the button. This is read by the screen reader when the user taps the button.
+   * - `checkedColor`: custom color for checked Text and Icon
+   * - `uncheckedColor`: custom color for unchecked Text and Icon
    * - `onPress`: callback that is called when button is pressed
    * - `label`: label text of the button
    * - `showSelectedCheck`: show optional check icon to indicate selected state
@@ -57,14 +59,17 @@ export type Props = {
    * - `testID`: testID to be used on tests
    */
   buttons: {
-    value: string;
+    value: T;
     icon?: IconSource;
     disabled?: boolean;
-    accessibilityLabel?: string;
+    'aria-label'?: string;
+    checkedColor?: string;
+    uncheckedColor?: string;
     onPress?: (event: GestureResponderEvent) => void;
     label?: string;
     showSelectedCheck?: boolean;
     style?: StyleProp<ViewStyle>;
+    labelStyle?: StyleProp<TextStyle>;
     testID?: string;
   }[];
   /**
@@ -72,55 +77,63 @@ export type Props = {
    */
   density?: 'regular' | 'small' | 'medium' | 'high';
   style?: StyleProp<ViewStyle>;
-} & ConditionalValue;
+  theme?: ThemeProp;
+} & ConditionalValue<T>;
 
 /**
- * @supported Available in v5.x
  * Segmented buttons can be used to select options, switch views or sort elements.</br>
- *
- * <div class="screenshots">
- *   <img class="medium" src="screenshots/segmented-button.png" />
- * </div>
  *
  * ## Usage
  * ```js
  * import * as React from 'react';
+ * import { SafeAreaView, StyleSheet } from 'react-native';
  * import { SegmentedButtons } from 'react-native-paper';
  *
  * const MyComponent = () => {
  *   const [value, setValue] = React.useState('');
  *
  *   return (
- *     <SegmentedButtons
- *      value={value}
- *      onValueChange={setValue}
- *      buttons={[
- *        {
- *          value: 'walk',
- *          label: 'Walking',
- *        },
- *        {
- *          value: 'train',
- *          label: 'Transit',
- *        },
- *      ]}
- *      style={styles.group}
- *    />
+ *     <SafeAreaView style={styles.container}>
+ *       <SegmentedButtons
+ *         value={value}
+ *         onValueChange={setValue}
+ *         buttons={[
+ *           {
+ *             value: 'walk',
+ *             label: 'Walking',
+ *           },
+ *           {
+ *             value: 'train',
+ *             label: 'Transit',
+ *           },
+ *           { value: 'drive', label: 'Driving' },
+ *         ]}
+ *       />
+ *     </SafeAreaView>
  *   );
  * };
+ *
+ * const styles = StyleSheet.create({
+ *   container: {
+ *     flex: 1,
+ *     alignItems: 'center',
+ *   },
+ * });
  *
  * export default MyComponent;
  *```
  */
-const SegmentedButtons = ({
+const SegmentedButtons = <T extends string = string>({
   value,
   onValueChange,
   buttons,
   multiSelect,
   density,
   style,
-}: Props) => {
-  const theme = useTheme();
+  theme: themeOverrides,
+}: Props<T>) => {
+  const theme = useInternalTheme(themeOverrides);
+
   return (
     <View style={[styles.row, style]}>
       {buttons.map((item, i) => {
@@ -160,6 +173,8 @@ const SegmentedButtons = ({
             density={density}
             onPress={onPress}
             style={[item.style, disabledChildStyle]}
+            labelStyle={item.labelStyle}
+            theme={theme}
           />
         );
       })}

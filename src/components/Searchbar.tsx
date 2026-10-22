@@ -1,36 +1,30 @@
 import * as React from 'react';
-import {
-  Animated,
-  I18nManager,
-  Platform,
+import { Platform, StyleSheet, TextInput, View } from 'react-native';
+import type {
+  ColorValue,
+  GestureResponderEvent,
   StyleProp,
-  StyleSheet,
-  TextInput,
   TextInputProps,
   TextStyle,
-  View,
-  ViewStyle,
 } from 'react-native';
 
-import color from 'color';
-
-import { withInternalTheme } from '../core/theming';
-import type { InternalTheme } from '../types';
 import ActivityIndicator from './ActivityIndicator';
+import Divider from './Divider';
 import type { IconSource } from './Icon';
 import IconButton from './IconButton/IconButton';
 import MaterialCommunityIcon from './MaterialCommunityIcon';
 import Surface from './Surface';
+import type { SurfaceStyle } from './Surface';
+import { useLocale } from '../core/locale';
+import { useInternalTheme } from '../core/theming';
+import { cornerNone } from '../theme/tokens/sys/shape';
+import type { Elevation, ThemeProp } from '../theme/types';
 
-export type Props = React.ComponentPropsWithRef<typeof TextInput> & {
-  /**
-   * Accessibility label for the button. This is read by the screen reader when the user taps the button.
-   */
-  clearAccessibilityLabel?: string;
-  /**
-   * Accessibility label for the button. This is read by the screen reader when the user taps the button.
-   */
-  searchAccessibilityLabel?: string;
+interface Style {
+  marginRight: number;
+}
+
+export type Props = Omit<TextInputProps, 'style'> & {
   /**
    * Hint text shown when the input is empty.
    */
@@ -40,37 +34,102 @@ export type Props = React.ComponentPropsWithRef<typeof TextInput> & {
    */
   value: string;
   /**
-   * Icon name for the left icon button (see `onIconPress`).
-   */
-  icon?: IconSource;
-  /**
    * Callback that is called when the text input's text changes.
    */
   onChangeText?: (query: string) => void;
   /**
+   * @supported Available in v5.x with theme version 3
+   * Search layout mode, the default value is "bar".
+   */
+  mode?: 'bar' | 'view';
+  /**
+   * Icon name for the left icon button (see `onIconPress`).
+   */
+  icon?: IconSource;
+  /**
+   * Custom color for icon, default will be derived from theme
+   */
+  iconColor?: ColorValue;
+  /**
    * Callback to execute if we want the left icon to act as button.
    */
-  onIconPress?: () => void;
+  onIconPress?: (e: GestureResponderEvent) => void;
+
+  /**
+   * Callback to execute if we want to add custom behaviour to close icon button.
+   */
+  onClearIconPress?: (e: GestureResponderEvent) => void;
+  /**
+   * Accessibility label for the button. This is read by the screen reader when the user taps the button.
+   */
+  searchAccessibilityLabel?: string;
+  /**
+   * testID for the left icon button (see `onIconPress`).
+   */
+  searchTestID?: string;
+  /**
+   * Custom icon for clear button, default will be icon close. It's visible when `loading` is set to `false`.
+   * In v5.x with theme version 3, `clearIcon` is visible only if `right` prop is not defined.
+   */
+  clearIcon?: IconSource;
+  /**
+   * Accessibility label for the button. This is read by the screen reader when the user taps the button.
+   */
+  clearAccessibilityLabel?: string;
+  /**
+   * testID for the clear button.
+   */
+  clearTestID?: string;
+  /**
+   * @supported Available in v5.x with theme version 3
+   * Icon name for the right trailing icon button.
+   * Works only when `mode` is set to "bar". It won't be displayed if `loading` is set to `true`.
+   */
+  trailingIcon?: IconSource;
+  /**
+   * @supported Available in v5.x with theme version 3
+   * Custom color for the right trailing icon, default will be derived from theme
+   */
+  trailingIconColor?: ColorValue;
+  /**
+   * Callback to execute on the right trailing icon button press.
+   */
+  onTrailingIconPress?: (e: GestureResponderEvent) => void;
+  /**
+   * Accessibility label for the right trailing icon button. This is read by the screen reader when the user taps the button.
+   */
+  trailingIconAccessibilityLabel?: string;
+  /**
+   * testID for the right trailing icon button.
+   */
+  trailingTestID?: string;
+  /**
+   * @supported Available in v5.x with theme version 3
+   * Callback which returns a React element to display on the right side.
+   * Works only when `mode` is set to "bar".
+   */
+  right?: (props: {
+    color: ColorValue;
+    style: Style;
+    testID?: string;
+  }) => React.ReactNode;
+  /**
+   * @supported Available in v5.x with theme version 3
+   * Whether to show `Divider` at the bottom of the search.
+   * Works only when `mode` is set to "view". True by default.
+   */
+  showDivider?: boolean;
   /**
    * @supported Available in v5.x with theme version 3
    * Changes Searchbar shadow and background on iOS and Android.
    */
-  elevation?: 0 | 1 | 2 | 3 | 4 | 5 | Animated.Value;
+  elevation?: Elevation;
   /**
    * Set style of the TextInput component inside the searchbar
    */
   inputStyle?: StyleProp<TextStyle>;
-  style?: StyleProp<ViewStyle>;
+  style?: StyleProp<SurfaceStyle>;
   /**
-   * Custom color for icon, default will be derived from theme
-   */
-  iconColor?: string;
-  /**
-   * Custom icon for clear button, default will be icon close
-   */
-  clearIcon?: IconSource;
-  /**
-   * @supported Available in v5.x
    * Custom flag for replacing clear button with activity indicator.
    */
   loading?: Boolean;
@@ -81,20 +140,17 @@ export type Props = React.ComponentPropsWithRef<typeof TextInput> & {
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
+  ref?: React.Ref<TextInputHandles>;
 };
 
 type TextInputHandles = Pick<
   TextInput,
-  'setNativeProps' | 'isFocused' | 'clear' | 'blur' | 'focus'
+  'setNativeProps' | 'isFocused' | 'clear' | 'blur' | 'focus' | 'setSelection'
 >;
 
 /**
  * Searchbar is a simple input box where users can type search queries.
- *
- * <div class="screenshots">
- *   <img class="small" src="screenshots/searchbar.png" />
- * </div>
  *
  * ## Usage
  * ```js
@@ -104,12 +160,10 @@ type TextInputHandles = Pick<
  * const MyComponent = () => {
  *   const [searchQuery, setSearchQuery] = React.useState('');
  *
- *   const onChangeSearch = query => setSearchQuery(query);
- *
  *   return (
  *     <Searchbar
  *       placeholder="Search"
- *       onChangeText={onChangeSearch}
+ *       onChangeText={setSearchQuery}
  *       value={searchQuery}
  *     />
  *   );
@@ -119,159 +173,193 @@ type TextInputHandles = Pick<
 
  * ```
  */
-const Searchbar = React.forwardRef<TextInputHandles, Props>(
-  (
-    {
-      clearAccessibilityLabel = 'clear',
-      clearIcon,
-      icon,
-      iconColor: customIconColor,
-      inputStyle,
-      onIconPress,
-      placeholder,
-      searchAccessibilityLabel = 'search',
-      elevation = 1,
-      style,
-      theme,
-      value,
-      loading = false,
-      testID = 'search-bar',
-      ...rest
-    }: Props,
-    ref
-  ) => {
-    const root = React.useRef<TextInput>(null);
+const Searchbar = ({
+  icon,
+  iconColor: customIconColor,
+  onIconPress,
+  searchAccessibilityLabel = 'search',
+  searchTestID,
+  clearIcon,
+  clearAccessibilityLabel = 'clear',
+  clearTestID,
+  onClearIconPress,
+  trailingIcon,
+  trailingIconColor,
+  trailingIconAccessibilityLabel,
+  trailingTestID,
+  onTrailingIconPress,
+  right,
+  mode = 'bar',
+  showDivider = true,
+  inputStyle,
+  placeholder,
+  elevation = 0,
+  style,
+  theme: themeOverrides,
+  value,
+  loading = false,
+  testID,
+  ref,
+  ...rest
+}: Props) => {
+  const theme = useInternalTheme(themeOverrides);
 
-    React.useImperativeHandle(ref, () => {
-      const input = root.current;
+  const { direction } = useLocale();
+  const { colors, fonts } = theme;
 
-      if (input) {
-        return {
-          focus: () => input.focus(),
-          clear: () => input.clear(),
-          setNativeProps: (args: TextInputProps) => input.setNativeProps(args),
-          isFocused: () => input.isFocused(),
-          blur: () => input.blur(),
-        };
-      }
+  const root = React.useRef<TextInput>(null);
 
-      const noop = () => {
-        throw new Error('TextInput is not available');
-      };
+  React.useImperativeHandle(ref, () => ({
+    focus: () => root.current?.focus(),
+    clear: () => root.current?.clear(),
+    setNativeProps: (args: TextInputProps) =>
+      root.current?.setNativeProps(args),
+    isFocused: () => root.current?.isFocused() || false,
+    blur: () => root.current?.blur(),
+    setSelection: (start: number, end: number) =>
+      root.current?.setSelection(start, end),
+  }));
 
-      return {
-        focus: noop,
-        clear: noop,
-        setNativeProps: noop,
-        isFocused: noop,
-        blur: noop,
-      };
-    });
+  const handleClearPress = (e: any) => {
+    root.current?.clear();
+    rest.onChangeText?.('');
+    onClearIconPress?.(e);
+  };
 
-    const handleClearPress = () => {
-      root.current?.clear();
-      rest.onChangeText?.('');
-    };
+  const { dark } = theme;
 
-    const { colors, roundness, dark, isV3 } = theme;
-    const textColor = isV3 ? theme.colors.onSurface : theme.colors.text;
-    const iconColor =
-      customIconColor ||
-      (dark ? textColor : color(textColor).alpha(0.54).rgb().string());
-    const rippleColor = color(textColor).alpha(0.32).rgb().string();
+  const placeholderTextColor = theme.colors.onSurface;
+  const textColor = theme.colors.onSurfaceVariant;
+  const iconColor = customIconColor || theme.colors.onSurfaceVariant;
 
-    return (
-      <Surface
-        style={[
-          { borderRadius: roundness },
-          !isV3 && styles.elevation,
-          styles.container,
-          style,
-        ]}
-        {...(theme.isV3 && { elevation })}
-      >
-        <IconButton
-          accessibilityRole="button"
-          borderless
-          rippleColor={rippleColor}
-          onPress={onIconPress}
-          iconColor={iconColor}
-          icon={
-            icon ||
-            (({ size, color }) => (
-              <MaterialCommunityIcon
-                name="magnify"
-                color={color}
-                size={size}
-                direction={I18nManager.getConstants().isRTL ? 'rtl' : 'ltr'}
-              />
-            ))
-          }
-          accessibilityLabel={searchAccessibilityLabel}
-        />
-        <TextInput
-          style={[
-            styles.input,
-            {
-              color: textColor,
-              ...(!isV3 && theme.fonts.regular),
-              ...Platform.select({ web: { outline: 'none' } }),
-            },
-            inputStyle,
-          ]}
-          placeholder={placeholder || ''}
-          placeholderTextColor={
-            theme.isV3 ? theme.colors.onSurface : theme.colors?.placeholder
-          }
-          selectionColor={colors?.primary}
-          underlineColorAndroid="transparent"
-          returnKeyType="search"
-          keyboardAppearance={dark ? 'dark' : 'light'}
-          accessibilityRole="search"
-          ref={root}
-          value={value}
-          testID={testID}
-          {...rest}
-        />
-        {loading ? (
-          <ActivityIndicator
-            testID="activity-indicator"
-            style={styles.loader}
-          />
-        ) : (
-          // Clear icon should be always rendered within Searchbar – it's transparent,
-          // without touch events, when there is no value. It's done to avoid issues
-          // with the abruptly stopping ripple effect and changing bar width on web,
-          // when clearing the value.
-          <View
-            pointerEvents={value ? 'auto' : 'none'}
-            testID={`${testID}-icon-wrapper`}
-          >
-            <IconButton
-              borderless
-              accessibilityLabel={clearAccessibilityLabel}
-              iconColor={value ? iconColor : 'rgba(255, 255, 255, 0)'}
-              rippleColor={rippleColor}
-              onPress={handleClearPress}
-              icon={
-                clearIcon ||
-                (({ size, color }) => (
-                  <MaterialCommunityIcon
-                    name="close"
-                    color={color}
-                    size={size}
-                    direction={I18nManager.getConstants().isRTL ? 'rtl' : 'ltr'}
-                  />
-                ))
-              }
-              accessibilityRole="button"
+  const font = {
+    ...fonts.bodyLarge,
+    lineHeight: Platform.select({
+      ios: 0,
+      default: fonts.bodyLarge.lineHeight,
+    }),
+  };
+
+  const isBarMode = mode === 'bar';
+  const inputTextAlign = direction === 'rtl' ? 'right' : 'left';
+  const shouldRenderTrailingIcon =
+    isBarMode && trailingIcon && !loading && (!value || right !== undefined);
+
+  return (
+    <Surface
+      backgroundColor={theme.colors.surfaceContainerHigh}
+      borderRadius={isBarMode ? theme.shapes.corner.extraLarge : cornerNone}
+      style={[styles.container, style]}
+      elevation={elevation}
+      theme={theme}
+    >
+      <IconButton
+        role="button"
+        borderless
+        onPress={onIconPress}
+        iconColor={iconColor}
+        icon={
+          icon ||
+          (({ size, color }) => (
+            <MaterialCommunityIcon
+              name="magnify"
+              color={color}
+              size={size}
+              direction={direction}
             />
-          </View>
-        )}
-      </Surface>
-    );
-  }
-);
+          ))
+        }
+        theme={theme}
+        aria-label={searchAccessibilityLabel}
+        testID={searchTestID}
+      />
+      <TextInput
+        style={[
+          styles.input,
+          {
+            color: textColor,
+            ...font,
+            ...Platform.select({ web: { outline: 'none' } }),
+            textAlign: inputTextAlign,
+          },
+          isBarMode ? styles.barModeInput : styles.viewModeInput,
+          inputStyle,
+        ]}
+        placeholder={placeholder || ''}
+        placeholderTextColor={placeholderTextColor}
+        selectionColor={colors.primary}
+        underlineColorAndroid="transparent"
+        returnKeyType="search"
+        keyboardAppearance={dark ? 'dark' : 'light'}
+        role="searchbox"
+        ref={root}
+        value={value}
+        testID={testID}
+        {...rest}
+      />
+      {loading ? (
+        <ActivityIndicator style={styles.v3Loader} />
+      ) : (
+        // Clear icon should be always rendered within Searchbar – it's transparent,
+        // without touch events, when there is no value. It's done to avoid issues
+        // with the abruptly stopping ripple effect and changing bar width on web,
+        // when clearing the value.
+        <View
+          pointerEvents={value ? 'auto' : 'none'}
+          style={[
+            !value && styles.v3ClearIcon,
+            right !== undefined && styles.v3ClearIconHidden,
+          ]}
+        >
+          <IconButton
+            borderless
+            aria-label={clearAccessibilityLabel}
+            iconColor={value ? iconColor : 'rgba(255, 255, 255, 0)'}
+            onPress={handleClearPress}
+            icon={
+              clearIcon ||
+              (({ size, color }) => (
+                <MaterialCommunityIcon
+                  name="close"
+                  color={color}
+                  size={size}
+                  direction={direction}
+                />
+              ))
+            }
+            role="button"
+            theme={theme}
+            testID={clearTestID}
+          />
+        </View>
+      )}
+      {shouldRenderTrailingIcon ? (
+        <IconButton
+          role="button"
+          borderless
+          onPress={onTrailingIconPress}
+          iconColor={trailingIconColor || colors.onSurfaceVariant}
+          icon={trailingIcon}
+          aria-label={trailingIconAccessibilityLabel}
+          testID={trailingTestID}
+        />
+      ) : null}
+      {isBarMode &&
+        right?.({ color: textColor, style: styles.rightStyle, testID })}
+      {!isBarMode && showDivider && (
+        <Divider
+          bold
+          style={[
+            styles.divider,
+            {
+              backgroundColor: colors.outline,
+            },
+          ]}
+        />
+      )}
+    </Surface>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -283,15 +371,35 @@ const styles = StyleSheet.create({
     fontSize: 18,
     paddingLeft: 8,
     alignSelf: 'stretch',
-    textAlign: I18nManager.getConstants().isRTL ? 'right' : 'left',
     minWidth: 0,
   },
-  elevation: {
-    elevation: 4,
+  barModeInput: {
+    paddingLeft: 0,
+    minHeight: 56,
   },
-  loader: {
-    margin: 10,
+  viewModeInput: {
+    paddingLeft: 0,
+    minHeight: 72,
+  },
+  v3Loader: {
+    marginHorizontal: 16,
+  },
+  rightStyle: {
+    marginRight: 16,
+  },
+  v3ClearIcon: {
+    position: 'absolute',
+    right: 0,
+    marginLeft: 16,
+  },
+  v3ClearIconHidden: {
+    display: 'none',
+  },
+  divider: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
   },
 });
 
-export default withInternalTheme(Searchbar);
+export default Searchbar;

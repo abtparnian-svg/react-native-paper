@@ -1,16 +1,15 @@
 import * as React from 'react';
-import {
-  Image,
+import { Image, StyleSheet, View } from 'react-native';
+import type {
   ImageProps,
   ImageSourcePropType,
   StyleProp,
-  StyleSheet,
-  View,
+  ViewProps,
   ViewStyle,
 } from 'react-native';
 
-import { withInternalTheme } from '../../core/theming';
-import type { InternalTheme } from '../../types';
+import { useInternalTheme } from '../../core/theming';
+import type { ThemeProp } from '../../theme/types';
 
 const defaultSize = 64;
 
@@ -18,7 +17,7 @@ export type AvatarImageSource =
   | ImageSourcePropType
   | ((props: { size: number }) => React.ReactNode);
 
-export type Props = React.ComponentPropsWithRef<typeof View> & {
+export type Props = ViewProps & {
   /**
    * Image to display for the `Avatar`.
    * It accepts a standard React Native Image `source` prop
@@ -57,17 +56,11 @@ export type Props = React.ComponentPropsWithRef<typeof View> & {
   /**
    * @optional
    */
-  theme: InternalTheme;
+  theme?: ThemeProp;
 };
 
 /**
  * Avatars can be used to represent people in a graphical way.
- *
- * <div class="screenshots">
- *   <figure>
- *     <img class="medium" src="screenshots/avatar-image.png" />
- *   </figure>
- * </div>
  *
  * ## Usage
  * ```js
@@ -90,11 +83,11 @@ const AvatarImage = ({
   onLoadEnd,
   onLoadStart,
   onProgress,
-  theme,
+  theme: themeOverrides,
+  testID,
   ...rest
 }: Props) => {
-  const { colors } = theme;
-
+  const { colors } = useInternalTheme(themeOverrides);
   const { backgroundColor = colors?.primary } = StyleSheet.flatten(style) || {};
 
   return (
@@ -113,6 +106,7 @@ const AvatarImage = ({
       {typeof source === 'function' && source({ size })}
       {typeof source !== 'function' && (
         <Image
+          testID={testID}
           source={source}
           style={{ width: size, height: size, borderRadius: size / 2 }}
           onError={onError}
@@ -130,4 +124,4 @@ const AvatarImage = ({
 
 AvatarImage.displayName = 'Avatar.Image';
 
-export default withInternalTheme(AvatarImage);
+export default AvatarImage;

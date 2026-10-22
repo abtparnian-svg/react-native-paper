@@ -1,16 +1,15 @@
-import * as React from 'react';
 import { FlatList } from 'react-native';
 
-import type { StackNavigationProp } from '@react-navigation/stack';
-import { Divider, List } from 'react-native-paper';
-import { useSafeArea } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { Divider, List, useTheme } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ActivityIndicatorExample from './Examples/ActivityIndicatorExample';
-import AnimatedFABExample from './Examples/AnimatedFABExample';
 import AppbarExample from './Examples/AppbarExample';
 import AvatarExample from './Examples/AvatarExample';
 import BadgeExample from './Examples/BadgeExample';
 import BannerExample from './Examples/BannerExample';
+import BottomNavigationBarExample from './Examples/BottomNavigationBarExample';
 import BottomNavigationExample from './Examples/BottomNavigationExample';
 import ButtonExample from './Examples/ButtonExample';
 import CardExample from './Examples/CardExample';
@@ -22,8 +21,10 @@ import DialogExample from './Examples/DialogExample';
 import DividerExample from './Examples/DividerExample';
 import FABExample from './Examples/FABExample';
 import IconButtonExample from './Examples/IconButtonExample';
+import IconExample from './Examples/IconExample';
 import ListAccordionExample from './Examples/ListAccordionExample';
 import ListAccordionExampleGroup from './Examples/ListAccordionGroupExample';
+import ListItemExample from './Examples/ListItemExample';
 import ListSectionExample from './Examples/ListSectionExample';
 import MenuExample from './Examples/MenuExample';
 import ProgressBarExample from './Examples/ProgressBarExample';
@@ -31,84 +32,85 @@ import RadioButtonExample from './Examples/RadioButtonExample';
 import RadioButtonGroupExample from './Examples/RadioButtonGroupExample';
 import RadioButtonItemExample from './Examples/RadioButtonItemExample';
 import SearchbarExample from './Examples/SearchbarExample';
+import SegmentedButtonMultiselectRealCase from './Examples/SegmentedButtons/SegmentedButtonMultiselectRealCase';
+import SegmentedButtonRealCase from './Examples/SegmentedButtons/SegmentedButtonRealCase';
 import SegmentedButtonExample from './Examples/SegmentedButtonsExample';
 import SnackbarExample from './Examples/SnackbarExample';
 import SurfaceExample from './Examples/SurfaceExample';
 import SwitchExample from './Examples/SwitchExample';
+import TeamDetails from './Examples/TeamDetails';
+import TeamsList from './Examples/TeamsList';
 import TextExample from './Examples/TextExample';
 import TextInputExample from './Examples/TextInputExample';
 import ThemeExample from './Examples/ThemeExample';
-import ToggleButtonExample from './Examples/ToggleButtonExample';
+import ThemingWithReactNavigation from './Examples/ThemingWithReactNavigation';
+import TooltipExample from './Examples/TooltipExample';
 import TouchableRippleExample from './Examples/TouchableRippleExample';
 
-import { useExampleTheme } from '.';
-
-export const examples: Record<
-  string,
-  React.ComponentType<any> & { title: string }
-> = {
-  animatedFab: AnimatedFABExample,
-  activityIndicator: ActivityIndicatorExample,
-  appbar: AppbarExample,
-  avatar: AvatarExample,
-  badge: BadgeExample,
-  banner: BannerExample,
-  bottomNavigation: BottomNavigationExample,
-  button: ButtonExample,
-  card: CardExample,
-  checkbox: CheckboxExample,
-  checkboxItem: CheckboxItemExample,
-  chip: ChipExample,
-  dataTable: DataTableExample,
-  dialog: DialogExample,
-  divider: DividerExample,
-  fab: FABExample,
-  iconButton: IconButtonExample,
-  listAccordion: ListAccordionExample,
-  listAccordionGroup: ListAccordionExampleGroup,
-  listSection: ListSectionExample,
-  menu: MenuExample,
-  progressbar: ProgressBarExample,
-  radio: RadioButtonExample,
-  radioGroup: RadioButtonGroupExample,
-  radioItem: RadioButtonItemExample,
-  searchbar: SearchbarExample,
-  segmentedButton: SegmentedButtonExample,
-  snackbar: SnackbarExample,
-  surface: SurfaceExample,
-  switch: SwitchExample,
-  text: TextExample,
-  textInput: TextInputExample,
-  toggleButton: ToggleButtonExample,
-  touchableRipple: TouchableRippleExample,
-  theme: ThemeExample,
+export const mainExamples = {
+  ActivityIndicator: ActivityIndicatorExample,
+  Appbar: AppbarExample,
+  Avatar: AvatarExample,
+  Badge: BadgeExample,
+  Banner: BannerExample,
+  BottomNavigationBarExample,
+  BottomNavigation: BottomNavigationExample,
+  Button: ButtonExample,
+  Card: CardExample,
+  Checkbox: CheckboxExample,
+  CheckboxItem: CheckboxItemExample,
+  Chip: ChipExample,
+  DataTable: DataTableExample,
+  Dialog: DialogExample,
+  Divider: DividerExample,
+  FAB: FABExample,
+  IconButton: IconButtonExample,
+  Icon: IconExample,
+  ListAccordion: ListAccordionExample,
+  ListAccordionGroup: ListAccordionExampleGroup,
+  ListSection: ListSectionExample,
+  ListItem: ListItemExample,
+  Menu: MenuExample,
+  Progressbar: ProgressBarExample,
+  Radio: RadioButtonExample,
+  RadioGroup: RadioButtonGroupExample,
+  RadioItem: RadioButtonItemExample,
+  Searchbar: SearchbarExample,
+  SegmentedButton: SegmentedButtonExample,
+  Snackbar: SnackbarExample,
+  Surface: SurfaceExample,
+  Switch: SwitchExample,
+  Text: TextExample,
+  TextInput: TextInputExample,
+  TooltipExample,
+  TouchableRipple: TouchableRippleExample,
+  Theme: ThemeExample,
+  ThemingWithReactNavigation,
 };
 
-type Props = {
-  navigation: StackNavigationProp<{ [key: string]: undefined }>;
+export const nestedExamples = {
+  ThemingWithReactNavigation,
+  TeamDetails,
+  TeamsList,
+  SegmentedButtonRealCase,
+  SegmentedButtonMultiselectRealCase,
 };
 
-type Item = {
-  id: string;
-  data: typeof examples[string];
+export const examples = {
+  ...mainExamples,
+  ...nestedExamples,
 };
 
-const data = Object.keys(examples).map(
-  (id): Item => ({ id, data: examples[id] })
-);
+const data = Object.entries(mainExamples).map(([id, example]) => ({
+  id,
+  data: example,
+}));
 
-export default function ExampleList({ navigation }: Props) {
-  const renderItem = ({ item }: { item: Item }) => (
-    <List.Item
-      title={item.data.title}
-      onPress={() => navigation.navigate(item.id)}
-    />
-  );
+export default function ExampleList() {
+  const navigation = useNavigation('ExampleList');
 
-  const keyExtractor = (item: { id: string }) => item.id;
-
-  const { colors } = useExampleTheme();
-  const safeArea = useSafeArea();
+  const { colors } = useTheme();
+  const safeArea = useSafeAreaInsets();
 
   return (
     <FlatList
@@ -123,8 +125,18 @@ export default function ExampleList({ navigation }: Props) {
       }}
       showsVerticalScrollIndicator={false}
       ItemSeparatorComponent={Divider}
-      renderItem={renderItem}
-      keyExtractor={keyExtractor}
+      renderItem={({ item }) => (
+        <List.Item
+          unstable_pressDelay={65}
+          title={item.data.title}
+          onPress={() => {
+            // @ts-expect-error TypeScript can't call overloaded functions with union arguments.
+            // https://github.com/microsoft/TypeScript/issues/40803
+            navigation.navigate(item.id);
+          }}
+        />
+      )}
+      keyExtractor={({ id }) => id}
       data={data}
     />
   );

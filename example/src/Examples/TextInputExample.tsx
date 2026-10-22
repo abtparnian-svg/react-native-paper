@@ -1,633 +1,226 @@
 import * as React from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   StyleSheet,
-  Text,
+  TextInput as NativeTextInput,
   View,
+  type TextStyle,
+  type ViewStyle,
 } from 'react-native';
 
 import {
-  HelperText,
+  Divider,
   List,
-  MD2Colors,
-  MD3Colors,
+  Switch,
+  Text,
   TextInput,
+  TouchableRipple,
+  useTheme,
+  type TextInputAccessoryProps,
+  type TextInputVariant,
 } from 'react-native-paper';
-import Icon from 'react-native-vector-icons/FontAwesome';
 
-import { useExampleTheme } from '..';
-import { inputReducer, State } from '../../utils';
 import ScreenWrapper from '../ScreenWrapper';
 
-const MAX_LENGTH = 20;
-
-const initialState: State = {
-  text: '',
-  customIconText: '',
-  name: '',
-  outlinedText: '',
-  largeText: '',
-  flatTextPassword: 'Password',
-  outlinedLargeText: '',
-  outlinedTextPassword: '',
-  nameNoPadding: '',
-  nameRequired: '',
-  flatDenseText: '',
-  flatDense: '',
-  outlinedDenseText: '',
-  outlinedDense: '',
-  flatMultiline: '',
-  flatTextArea: '',
-  flatUnderlineColors: '',
-  outlinedMultiline: '',
-  outlinedTextArea: '',
-  outlinedColors: '',
-  outlinedLongLabel: '',
-  maxLengthName: '',
-  flatTextSecureEntry: true,
-  outlineTextSecureEntry: true,
-  iconsColor: {
-    flatLeftIcon: undefined,
-    flatRightIcon: undefined,
-    outlineLeftIcon: undefined,
-    outlineRightIcon: undefined,
-    customIcon: undefined,
-  },
+type DemoControls = {
+  error: boolean;
+  disabled: boolean;
+  readOnly: boolean;
+  leadingIcon: boolean;
+  trailingIcon: boolean;
+  counter: boolean;
+  showPrefix: boolean;
+  showSuffix: boolean;
+  multiline: boolean;
 };
 
-type AvoidingViewProps = {
-  children: React.ReactNode;
+type DemoModifiers = {
+  label: string;
+  helperText: string;
+  placeholder: string;
+  prefix: string;
+  suffix: string;
 };
 
-const TextInputAvoidingView = ({ children }: AvoidingViewProps) => {
-  return Platform.OS === 'ios' ? (
-    <KeyboardAvoidingView
-      style={styles.wrapper}
-      behavior="padding"
-      keyboardVerticalOffset={80}
-    >
-      {children}
-    </KeyboardAvoidingView>
-  ) : (
-    <>{children}</>
+type TextInputDemoProps = {
+  variant: TextInputVariant;
+};
+
+const TextInputDemo = ({ variant }: TextInputDemoProps) => {
+  const theme = useTheme();
+
+  const [value, setValue] = React.useState('');
+
+  const [controls, setControls] = React.useState<DemoControls>({
+    error: false,
+    disabled: false,
+    readOnly: false,
+    leadingIcon: false,
+    trailingIcon: false,
+    counter: false,
+    showPrefix: false,
+    showSuffix: false,
+    multiline: false,
+  });
+
+  const [modifiers, setModifiers] = React.useState<DemoModifiers>({
+    label: 'Label',
+    helperText: 'Supporting text',
+    placeholder: 'Placeholder',
+    prefix: '$',
+    suffix: '/100',
+  });
+
+  const toggleControl = (key: keyof DemoControls) =>
+    setControls((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const setModifier = (key: keyof DemoModifiers, text: string) =>
+    setModifiers((prev) => ({ ...prev, [key]: text }));
+
+  const leadingIcon = (props: TextInputAccessoryProps) => (
+    <TextInput.Icon {...props} icon="magnify" />
+  );
+
+  const trailingIcon = (props: TextInputAccessoryProps) => (
+    <TextInput.Icon {...props} icon="close" onPress={() => setValue('')} />
+  );
+
+  const inputColor = theme.colors.onSurfaceVariant;
+  const borderColor = theme.colors.outlineVariant;
+
+  const modifierInputStyle: TextStyle = {
+    flex: 1,
+    color: inputColor,
+    fontSize: 14,
+    paddingVertical: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: borderColor,
+  };
+
+  const SWITCH_CONTROLS: { label: string; key: keyof DemoControls }[] = [
+    { label: 'Error', key: 'error' },
+    { label: 'Disabled', key: 'disabled' },
+    { label: 'Readonly', key: 'readOnly' },
+    { label: 'Leading icon', key: 'leadingIcon' },
+    { label: 'Trailing icon', key: 'trailingIcon' },
+    { label: 'Counter', key: 'counter' },
+    { label: 'Prefix', key: 'showPrefix' },
+    { label: 'Suffix', key: 'showSuffix' },
+    { label: 'Multiline', key: 'multiline' },
+  ];
+
+  const MODIFIER_FIELDS: { label: string; key: keyof DemoModifiers }[] = [
+    { label: 'Label', key: 'label' },
+    { label: 'Helper', key: 'helperText' },
+    { label: 'Placeholder', key: 'placeholder' },
+    { label: 'Prefix', key: 'prefix' },
+    { label: 'Suffix', key: 'suffix' },
+  ];
+
+  return (
+    <View style={styles.demoContainer}>
+      {/* Live TextInput */}
+      <TextInput
+        variant={variant}
+        label={modifiers.label || undefined}
+        placeholder={modifiers.placeholder || undefined}
+        supportingText={modifiers.helperText || undefined}
+        error={controls.error}
+        disabled={controls.disabled}
+        editable={!controls.readOnly}
+        value={value}
+        onChangeText={setValue}
+        multiline={controls.multiline}
+        counter={controls.counter}
+        maxLength={controls.counter ? 100 : undefined}
+        prefix={controls.showPrefix ? modifiers.prefix : undefined}
+        suffix={controls.showSuffix ? modifiers.suffix : undefined}
+        startAccessory={controls.leadingIcon ? leadingIcon : undefined}
+        endAccessory={controls.trailingIcon ? trailingIcon : undefined}
+      />
+
+      <Divider style={styles.divider} />
+
+      {/* Controls */}
+      <List.Subheader style={styles.subheader}>Controls</List.Subheader>
+      {SWITCH_CONTROLS.map(({ label, key }) => (
+        <TouchableRipple key={key} onPress={() => toggleControl(key)}>
+          <View style={styles.switchRow}>
+            <Text variant="bodyMedium">{label}</Text>
+            <View pointerEvents="none">
+              <Switch value={controls[key]} />
+            </View>
+          </View>
+        </TouchableRipple>
+      ))}
+
+      <Divider style={styles.divider} />
+
+      {/* Modifiers */}
+      <List.Subheader style={styles.subheader}>Modifiers</List.Subheader>
+      {MODIFIER_FIELDS.map(({ label, key }) => (
+        <View key={key} style={styles.modifierRow}>
+          <Text variant="bodyMedium" style={styles.modifierLabel}>
+            {label}
+          </Text>
+          <NativeTextInput
+            value={modifiers[key]}
+            onChangeText={(text) => setModifier(key, text)}
+            style={modifierInputStyle}
+            placeholderTextColor={theme.colors.outline}
+            placeholder={`Enter ${label.toLowerCase()}…`}
+          />
+        </View>
+      ))}
+    </View>
   );
 };
 
 const TextInputExample = () => {
-  const [state, dispatch] = React.useReducer(inputReducer, initialState);
-  const {
-    text,
-    customIconText,
-    name,
-    outlinedText,
-    largeText,
-    flatTextPassword,
-    outlinedLargeText,
-    outlinedTextPassword,
-    nameNoPadding,
-    nameRequired,
-    flatDenseText,
-    flatDense,
-    outlinedDenseText,
-    outlinedDense,
-    flatMultiline,
-    flatTextArea,
-    flatUnderlineColors,
-    outlinedMultiline,
-    outlinedTextArea,
-    outlinedColors,
-    maxLengthName,
-    flatTextSecureEntry,
-    outlineTextSecureEntry,
-    iconsColor: {
-      flatLeftIcon,
-      flatRightIcon,
-      outlineLeftIcon,
-      outlineRightIcon,
-      customIcon,
-    },
-  } = state;
-
-  const _isUsernameValid = (name: string) => /^[a-zA-Z]*$/.test(name);
-
-  const theme = useExampleTheme();
-
-  const inputActionHandler = (type: keyof State, payload: string) =>
-    dispatch({
-      type: type,
-      payload: payload,
-    });
-
-  const changeIconColor = (name: keyof State['iconsColor']) => {
-    const color = state.iconsColor[name];
-
-    const newColors = {
-      ...state.iconsColor,
-      [name]: !color
-        ? theme.isV3
-          ? theme.colors.primary
-          : theme.colors?.accent
-        : undefined,
-    };
-
-    dispatch({
-      type: 'iconsColor',
-      payload: newColors,
-    });
-  };
-
   return (
-    <TextInputAvoidingView>
-      <ScreenWrapper
-        keyboardShouldPersistTaps={'always'}
-        removeClippedSubviews={false}
-      >
-        <List.Section title="Flat inputs">
-          <TextInput
-            style={styles.inputContainerStyle}
-            label="Flat input"
-            placeholder="Type something"
-            value={text}
-            onChangeText={(text) => inputActionHandler('text', text)}
-            left={
-              <TextInput.Icon
-                icon="magnify"
-                color={flatLeftIcon}
-                onPress={() => {
-                  changeIconColor('flatLeftIcon');
-                }}
-              />
-            }
-            right={<TextInput.Affix text="/100" />}
-          />
-          <TextInput
-            style={styles.inputContainerStyle}
-            label="Flat input with custom icon"
-            placeholder="Type something"
-            value={customIconText}
-            onChangeText={(text) => inputActionHandler('customIconText', text)}
-            right={<TextInput.Affix text="/100" />}
-            left={
-              <TextInput.Icon
-                icon={() => (
-                  <Icon
-                    name="home"
-                    size={24}
-                    color={customIcon}
-                    onPress={() => {
-                      changeIconColor('customIcon');
-                    }}
-                  />
-                )}
-              />
-            }
-          />
-          <TextInput
-            style={[styles.inputContainerStyle, styles.fontSize]}
-            label="Flat input large font"
-            placeholder="Type something"
-            value={largeText}
-            onChangeText={(largeText) =>
-              inputActionHandler('largeText', largeText)
-            }
-            left={<TextInput.Affix text="#" />}
-            right={
-              <TextInput.Icon
-                icon="magnify"
-                color={flatRightIcon}
-                onPress={() => {
-                  changeIconColor('flatRightIcon');
-                }}
-              />
-            }
-          />
-          <TextInput
-            style={[styles.inputContainerStyle, styles.fontSize]}
-            label="Flat input large font"
-            placeholder="Type something"
-            value={flatTextPassword}
-            onChangeText={(flatTextPassword) =>
-              inputActionHandler('flatTextPassword', flatTextPassword)
-            }
-            secureTextEntry={flatTextSecureEntry}
-            right={
-              <TextInput.Icon
-                icon={flatTextSecureEntry ? 'eye' : 'eye-off'}
-                onPress={() =>
-                  dispatch({
-                    type: 'flatTextSecureEntry',
-                    payload: !flatTextSecureEntry,
-                  })
-                }
-                forceTextInputFocus={false}
-              />
-            }
-          />
-        </List.Section>
-        <List.Section title="Outline inputs">
-          <TextInput
-            mode="outlined"
-            style={styles.inputContainerStyle}
-            label="Outlined input"
-            placeholder="Type something"
-            value={outlinedText}
-            onChangeText={(outlinedText) =>
-              inputActionHandler('outlinedText', outlinedText)
-            }
-            left={
-              <TextInput.Icon
-                icon="magnify"
-                color={outlineLeftIcon}
-                onPress={() => {
-                  changeIconColor('outlineLeftIcon');
-                }}
-              />
-            }
-            right={<TextInput.Affix text="/100" />}
-          />
-          <TextInput
-            mode="outlined"
-            style={[styles.inputContainerStyle, styles.fontSize]}
-            label="Outlined large font"
-            placeholder="Type something"
-            value={outlinedLargeText}
-            onChangeText={(outlinedLargeText) =>
-              inputActionHandler('outlinedLargeText', outlinedLargeText)
-            }
-            left={<TextInput.Affix text="$" />}
-            right={
-              <TextInput.Icon
-                icon="magnify"
-                color={outlineRightIcon}
-                onPress={() => {
-                  changeIconColor('outlineRightIcon');
-                }}
-              />
-            }
-          />
-          <TextInput
-            mode="outlined"
-            style={[styles.inputContainerStyle, styles.fontSize]}
-            label="Outlined large font"
-            placeholder="Type something"
-            value={outlinedTextPassword}
-            onChangeText={(outlinedTextPassword) =>
-              inputActionHandler('outlinedTextPassword', outlinedTextPassword)
-            }
-            secureTextEntry={outlineTextSecureEntry}
-            right={
-              <TextInput.Icon
-                icon={outlineTextSecureEntry ? 'eye' : 'eye-off'}
-                onPress={() =>
-                  dispatch({
-                    type: 'outlineTextSecureEntry',
-                    payload: !outlineTextSecureEntry,
-                  })
-                }
-              />
-            }
-          />
-        </List.Section>
-        <List.Section title="Disabled inputs">
-          <TextInput
-            disabled
-            style={styles.inputContainerStyle}
-            label="Disabled flat input"
-          />
-          <TextInput
-            disabled
-            style={styles.inputContainerStyle}
-            label="Disabled flat input with value"
-            value="Disabled flat input value"
-          />
-          <TextInput
-            mode="outlined"
-            disabled
-            style={styles.inputContainerStyle}
-            label="Disabled outlined input"
-          />
-          <TextInput
-            mode="outlined"
-            disabled
-            style={styles.inputContainerStyle}
-            label="Disabled outlined input"
-            value="Disabled outlined input with value"
-          />
-        </List.Section>
-        <List.Section title="Dense inputs">
-          <TextInput
-            style={styles.inputContainerStyle}
-            dense
-            label="Dense flat input"
-            placeholder="Type something"
-            value={flatDenseText}
-            onChangeText={(flatDenseText) =>
-              inputActionHandler('flatDenseText', flatDenseText)
-            }
-            left={<TextInput.Affix text="#" />}
-            right={
-              <TextInput.Icon
-                icon="chevron-up"
-                color={(focused) =>
-                  focused ? theme.colors?.primary : undefined
-                }
-              />
-            }
-          />
-          <TextInput
-            style={styles.inputContainerStyle}
-            dense
-            placeholder="Dense flat input without label"
-            value={flatDense}
-            onChangeText={(flatDense) =>
-              inputActionHandler('flatDense', flatDense)
-            }
-          />
-          <TextInput
-            mode="outlined"
-            style={styles.inputContainerStyle}
-            dense
-            label="Dense outlined input"
-            placeholder="Type something"
-            value={outlinedDenseText}
-            onChangeText={(outlinedDenseText) =>
-              inputActionHandler('outlinedDenseText', outlinedDenseText)
-            }
-            left={<TextInput.Affix text="$" />}
-          />
-          <TextInput
-            mode="outlined"
-            style={styles.inputContainerStyle}
-            dense
-            placeholder="Dense outlined input without label"
-            value={outlinedDense}
-            onChangeText={(outlinedDense) =>
-              inputActionHandler('outlinedDense', outlinedDense)
-            }
-          />
-        </List.Section>
-        <List.Section title="Multiline inputs">
-          <TextInput
-            style={styles.inputContainerStyle}
-            label="Flat input multiline"
-            multiline
-            placeholder="Type something"
-            value={flatMultiline}
-            onChangeText={(flatMultiline) =>
-              inputActionHandler('flatMultiline', flatMultiline)
-            }
-          />
-          <TextInput
-            style={[styles.inputContainerStyle, styles.textArea]}
-            label="Flat input text area"
-            multiline
-            placeholder="Type something"
-            value={flatTextArea}
-            onChangeText={(flatTextArea) =>
-              inputActionHandler('flatTextArea', flatTextArea)
-            }
-          />
-          <View style={styles.inputContainerStyle}>
-            <TextInput
-              mode="flat"
-              label="Flat multiline text input with fixed height"
-              multiline
-              style={styles.fixedHeight}
-            />
-          </View>
-          <TextInput
-            mode="outlined"
-            style={styles.inputContainerStyle}
-            label="Outlined input multiline"
-            multiline
-            placeholder="Type something"
-            value={outlinedMultiline}
-            onChangeText={(outlinedMultiline) =>
-              inputActionHandler('outlinedMultiline', outlinedMultiline)
-            }
-          />
-          <TextInput
-            mode="outlined"
-            style={[styles.inputContainerStyle, styles.textArea]}
-            label="Outlined input text area"
-            multiline
-            placeholder="Type something"
-            value={outlinedTextArea}
-            onChangeText={(outlinedTextArea) =>
-              inputActionHandler('outlinedTextArea', outlinedTextArea)
-            }
-          />
-          <View style={styles.inputContainerStyle}>
-            <TextInput
-              mode="outlined"
-              label="Outlined multiline text input with fixed height"
-              multiline
-              style={styles.fixedHeight}
-            />
-          </View>
-        </List.Section>
-        <List.Section title="Inputs with helpers">
-          <View style={styles.inputContainerStyle}>
-            <TextInput
-              label="Input with helper text"
-              placeholder="Enter username, only letters"
-              value={name}
-              error={!_isUsernameValid(name)}
-              onChangeText={(name) => inputActionHandler('name', name)}
-            />
-            <HelperText type="error" visible={!_isUsernameValid(name)}>
-              Error: Only letters are allowed
-            </HelperText>
-          </View>
-          <View style={styles.inputContainerStyle}>
-            <TextInput
-              label="Input with helper text and character counter"
-              placeholder="Enter username, only letters"
-              value={maxLengthName}
-              error={!_isUsernameValid(maxLengthName)}
-              onChangeText={(maxLengthName) =>
-                inputActionHandler('maxLengthName', maxLengthName)
-              }
-              maxLength={MAX_LENGTH}
-            />
-            <View style={styles.helpersWrapper}>
-              <HelperText
-                type="error"
-                visible={!_isUsernameValid(maxLengthName)}
-                style={styles.helper}
-              >
-                Error: Numbers and special characters are not allowed
-              </HelperText>
-              <HelperText type="info" visible style={styles.counterHelper}>
-                {maxLengthName.length} / {MAX_LENGTH}
-              </HelperText>
-            </View>
-          </View>
-          <View style={styles.inputContainerStyle}>
-            <TextInput
-              label={
-                <Text>
-                  <Text
-                    style={{
-                      color: theme.isV3 ? MD3Colors.error50 : MD2Colors.red500,
-                    }}
-                  >
-                    *
-                  </Text>{' '}
-                  Label as component
-                </Text>
-              }
-              style={styles.noPaddingInput}
-              placeholder="Enter username, required"
-              value={nameRequired}
-              error={!nameRequired}
-              onChangeText={(nameRequired) =>
-                inputActionHandler('nameRequired', nameRequired)
-              }
-            />
-            <HelperText type="error" padding="none" visible={!nameRequired}>
-              Error: Username is required
-            </HelperText>
-          </View>
-        </List.Section>
-        <List.Section title="Custom inputs">
-          <TextInput
-            style={styles.inputContainerStyle}
-            label="Flat input with custom underline colors"
-            placeholder="Type something"
-            value={flatUnderlineColors}
-            onChangeText={(flatUnderlineColors) =>
-              inputActionHandler('flatUnderlineColors', flatUnderlineColors)
-            }
-            underlineColor={
-              theme.isV3 ? MD3Colors.primary70 : MD2Colors.pink400
-            }
-            activeUnderlineColor={
-              theme.isV3 ? MD3Colors.tertiary50 : MD2Colors.amber900
-            }
-          />
-          <TextInput
-            mode="outlined"
-            style={styles.inputContainerStyle}
-            label="Outlined input with custom outline colors"
-            placeholder="Type something"
-            value={outlinedColors}
-            onChangeText={(outlinedColors) =>
-              inputActionHandler('outlinedColors', outlinedColors)
-            }
-            outlineColor={theme.isV3 ? MD3Colors.primary70 : MD2Colors.pink400}
-            activeOutlineColor={
-              theme.isV3 ? MD3Colors.tertiary50 : MD2Colors.amber900
-            }
-          />
-          <TextInput
-            mode="outlined"
-            style={styles.inputContainerStyle}
-            label="Outlined with super long label which is truncating at some point"
-            placeholder="Type something"
-            onChangeText={(outlinedLongLabel) =>
-              inputActionHandler('outlinedLongLabel', outlinedLongLabel)
-            }
-          />
-
-          <View style={styles.inputContainerStyle}>
-            <TextInput
-              label="Input with no padding"
-              style={styles.noPaddingInput}
-              placeholder="Enter username, only letters"
-              value={nameNoPadding}
-              error={!_isUsernameValid(nameNoPadding)}
-              onChangeText={(nameNoPadding) =>
-                inputActionHandler('nameNoPadding', nameNoPadding)
-              }
-            />
-            <HelperText
-              type="error"
-              padding="none"
-              visible={!_isUsernameValid(nameNoPadding)}
-            >
-              Error: Only letters are allowed
-            </HelperText>
-          </View>
-
-          <View style={styles.inputContainerStyle}>
-            <TextInput
-              label="Input with text align center"
-              style={styles.centeredText}
-            />
-          </View>
-          <View style={styles.inputContainerStyle}>
-            <TextInput
-              mode="outlined"
-              label="Outlined input with text align center"
-              style={styles.centeredText}
-            />
-          </View>
-          <View style={styles.inputContainerStyle}>
-            <TextInput
-              mode="outlined"
-              theme={{
-                roundness: 25,
-              }}
-              label="Outlined text input with custom roundness"
-            />
-          </View>
-          <View style={styles.inputContainerStyle}>
-            <TextInput
-              mode="outlined"
-              label="Outlined text input without roundness"
-              theme={{ roundness: 0 }}
-            />
-          </View>
-          <View style={styles.inputContainerStyle}>
-            <TextInput
-              mode="outlined"
-              label="Outlined text input with error"
-              error
-            />
-          </View>
-        </List.Section>
-      </ScreenWrapper>
-    </TextInputAvoidingView>
+    <ScreenWrapper contentContainerStyle={styles.container}>
+      <List.Section title="Filled">
+        <TextInputDemo variant="filled" />
+      </List.Section>
+      <List.Section title="Outlined">
+        <TextInputDemo variant="outlined" />
+      </List.Section>
+    </ScreenWrapper>
   );
 };
 
 TextInputExample.title = 'TextInput';
 
 const styles = StyleSheet.create({
-  helpersWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  wrapper: {
-    flex: 1,
-  },
-  helper: {
-    flexShrink: 1,
-  },
-  counterHelper: {
-    textAlign: 'right',
-  },
-  inputContainerStyle: {
-    margin: 8,
-  },
-  fontSize: {
-    fontSize: 32,
-  },
-  textArea: {
-    height: 80,
-  },
-  noPaddingInput: {
-    backgroundColor: 'transparent',
+  container: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  } satisfies ViewStyle,
+  demoContainer: {
+    gap: 4,
+  } satisfies ViewStyle,
+  divider: {
+    marginVertical: 8,
+  } satisfies ViewStyle,
+  subheader: {
     paddingHorizontal: 0,
-  },
-  centeredText: {
-    textAlign: 'center',
-  },
-  fixedHeight: {
-    height: 100,
-  },
+  } satisfies TextStyle,
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+  } satisfies ViewStyle,
+  modifierRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+  } satisfies ViewStyle,
+  modifierLabel: {
+    width: 80,
+  } satisfies TextStyle,
 });
 
 export default TextInputExample;

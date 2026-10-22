@@ -1,183 +1,256 @@
-import * as React from 'react';
+import React from 'react';
 import {
-  Animated,
-  LayoutChangeEvent,
-  StyleProp,
+  Pressable,
+  Text,
   TextInput as NativeTextInput,
+  View,
+} from 'react-native';
+import type { TextInputProps as NativeTextInputProps } from 'react-native';
+import type {
+  AccessibilityProps,
+  BlurEvent,
+  ColorValue,
+  FocusEvent,
+  StyleProp,
   TextStyle,
+  ViewStyle,
 } from 'react-native';
 
-import { withInternalTheme } from '../../core/theming';
-import type { InternalTheme } from '../../types';
-import TextInputAffix, {
-  Props as TextInputAffixProps,
-} from './Adornment/TextInputAffix';
-import TextInputIcon, {
-  Props as TextInputIconProps,
-} from './Adornment/TextInputIcon';
-import TextInputFlat from './TextInputFlat';
-import TextInputOutlined from './TextInputOutlined';
-import type { RenderProps, TextInputLabelProp } from './types';
+import Animated from 'react-native-reanimated';
+import type { AnimatedStyle } from 'react-native-reanimated';
 
-const BLUR_ANIMATION_DURATION = 180;
-const FOCUS_ANIMATION_DURATION = 150;
+import { useTextInput } from './hooks';
+import { styles } from './styles';
+import TextInputErrorIcon from './TextInputErrorIcon';
+import type { TextInputAccessoryProps } from './TextInputIcon';
+import type { InternalTheme, ThemeProp } from '../../theme/types';
 
-export type Props = React.ComponentPropsWithRef<typeof NativeTextInput> & {
+export type TextInputAnimationState = {
+  animatedLabelWrapperStyle: StyleProp<AnimatedStyle<StyleProp<ViewStyle>>>;
+  animatedLabelTextStyle: StyleProp<AnimatedStyle<StyleProp<TextStyle>>>;
+  animatedContainerStyle: StyleProp<AnimatedStyle<StyleProp<ViewStyle>>>;
+  animatedActiveOutlineStyle?: StyleProp<AnimatedStyle<StyleProp<ViewStyle>>>;
+};
+
+export type TextInputAnimationHandlers = {
+  runFocusAnimation: (hasText: boolean) => void;
+  runBlurAnimation: (hasText: boolean) => void;
+  syncFloatToValue: (hasText: boolean) => void;
+};
+
+export type TextInputFlags = {
+  isRTL: boolean;
+  isDisabled: boolean;
+  isEditable: boolean | undefined;
+  hasError: boolean;
+  hasCounter: boolean;
+  hasAccessory: boolean;
+  isFloating: boolean;
+  hasPrefix: boolean;
+  hasSuffix: boolean;
+};
+
+export type TextInputColors = {
+  selectionColor: ColorValue;
+  cursorColor: ColorValue;
+  placeholderTextColor: ColorValue;
+};
+
+export type GetAccessibilityDataReturn = {
+  input: AccessibilityProps & { 'aria-invalid'?: boolean };
+  supportingText: AccessibilityProps;
+  counter: AccessibilityProps;
+};
+
+export type GetAccessibilityDataProps = {
+  data: TextInputProps;
+  inputLength: number;
+  hasError: boolean;
+  hasCounter: boolean;
+  isDisabled: boolean;
+};
+
+export type TextInputVariant = 'filled' | 'outlined';
+
+export type TextInputSharedApi = {
+  input: React.RefObject<NativeTextInput | null>;
+  theme: InternalTheme;
+  isFocused: boolean;
+  isRTL: boolean;
+  isDisabled: boolean;
+  hasAccessory: boolean;
+  hasError: boolean;
+  hasSuffix: boolean;
+  animatedLabelWrapperStyle: StyleProp<AnimatedStyle<StyleProp<ViewStyle>>>;
+  animatedLabelTextStyle: StyleProp<AnimatedStyle<StyleProp<TextStyle>>>;
+  animatedActiveOutlineStyle?: StyleProp<AnimatedStyle<StyleProp<ViewStyle>>>;
+};
+
+export type SharedTextInputStyleData = {
+  isRTL: boolean;
+  animatedLabelTextStyles: StyleProp<AnimatedStyle<StyleProp<TextStyle>>>;
+  supportingTextStyles: StyleProp<TextStyle>;
+  counterStyles: StyleProp<TextStyle>;
+  prefixStyles: StyleProp<TextStyle>;
+  suffixStyles: StyleProp<TextStyle>;
+  leadingAccessoryStyles: StyleProp<ViewStyle>;
+  trailingAccessoryStyles: StyleProp<ViewStyle>;
+};
+
+export type FilledTextInputHookData = SharedTextInputStyleData & {
+  input: React.RefObject<NativeTextInput | null>;
+  isDisabled: boolean;
+  hasError: boolean;
+  hasSuffix: boolean;
+  animatedLabelWrapperStyles: StyleProp<AnimatedStyle<StyleProp<ViewStyle>>>;
+  containerStyles: StyleProp<ViewStyle>;
+  fieldStyles: StyleProp<ViewStyle>;
+  disabledBackgroundStyles: StyleProp<ViewStyle> | undefined;
+  outlineStyles: StyleProp<ViewStyle>;
+  animatedActiveOutlineStyles: StyleProp<AnimatedStyle<StyleProp<ViewStyle>>>;
+  inputStyles: StyleProp<TextStyle>;
+};
+
+export type OutlinedTextInputHookData = SharedTextInputStyleData & {
+  input: React.RefObject<NativeTextInput | null>;
+  isDisabled: boolean;
+  hasError: boolean;
+  hasSuffix: boolean;
+  animatedLabelWrapperStyles: StyleProp<AnimatedStyle<StyleProp<ViewStyle>>>;
+  containerStyles: StyleProp<ViewStyle>;
+  fieldStyles: StyleProp<ViewStyle>;
+  disabledBackgroundStyles: undefined;
+  outlineStyles: StyleProp<ViewStyle>;
+  inputStyles: StyleProp<TextStyle>;
+};
+
+export type TextInputLayoutData =
+  | FilledTextInputHookData
+  | OutlinedTextInputHookData;
+
+export type TextInputLayoutState = Omit<
+  TextInputLayoutData,
+  'input' | 'isDisabled' | 'hasError' | 'hasSuffix'
+>;
+
+export type TextInputHookReturn = SharedTextInputStyleData & {
+  input: React.RefObject<NativeTextInput | null>;
+  isDisabled: boolean;
+  isEditable: boolean | undefined;
+  hasPrefix: boolean;
+  hasCounter: boolean;
+  hasSuffix: boolean;
+  hasError: boolean;
+  placeholderTextColor: ColorValue;
+  selectionColor: ColorValue;
+  cursorColor: ColorValue;
+  animatedActiveOutlineStyles:
+    | StyleProp<AnimatedStyle<StyleProp<ViewStyle>>>
+    | undefined;
+  animatedContainerStyle: StyleProp<AnimatedStyle<StyleProp<ViewStyle>>>;
+  animatedLabelWrapperStyles: StyleProp<AnimatedStyle<StyleProp<ViewStyle>>>;
+  containerStyles: StyleProp<ViewStyle>;
+  fieldStyles: StyleProp<ViewStyle>;
+  disabledBackgroundStyles: StyleProp<ViewStyle> | undefined;
+  outlineStyles: StyleProp<ViewStyle>;
+  inputStyles: StyleProp<TextStyle>;
+  placeholder: string | undefined;
+  counterText: string;
+  accessibilityProps: GetAccessibilityDataReturn;
+  renderLeadingAccessory:
+    | ((props: TextInputAccessoryProps) => React.ReactNode)
+    | undefined;
+  renderTrailingAccessory:
+    | ((props: TextInputAccessoryProps) => React.ReactNode)
+    | undefined;
+  onChangeText: (text: string) => void;
+  onFocus: (e: FocusEvent) => void;
+  onBlur: (e: BlurEvent) => void;
+  focusInput: () => void;
+};
+
+export type TextInputRenderProps = React.ComponentPropsWithoutRef<
+  typeof NativeTextInput
+> & {
+  ref?: React.RefObject<NativeTextInput | null>;
+};
+
+export type TextInputHandles = Pick<
+  NativeTextInput,
+  'focus' | 'clear' | 'blur' | 'isFocused' | 'setNativeProps' | 'setSelection'
+>;
+
+export type TextInputProps = NativeTextInputProps & {
   /**
-   * Mode of the TextInput.
-   * - `flat` - flat input with an underline.
-   * - `outlined` - input with an outline.
+   * Imperative handle exposing a subset of native `TextInput` methods
+   * with side-effect handling (e.g. `clear()` syncs internal state and animations).
+   */
+  ref?: React.Ref<TextInputHandles>;
+  /**
+   * Determines the visual style of the text input.
    *
-   * In `outlined` mode, the background color of the label is derived from `colors?.background` in theme or the `backgroundColor` style.
-   * This component render TextInputOutlined or TextInputFlat based on that props
+   * - `filled` — filled background with an animated underline; higher visual emphasis.
+   * - `outlined` — stroke outline only; lower visual emphasis.
    */
-  mode?: 'flat' | 'outlined';
-  left?: React.ReactNode;
-  right?: React.ReactNode;
+  variant?: TextInputVariant;
   /**
-   * If true, user won't be able to interact with the component.
-   */
-  disabled?: boolean;
-  /**
-   * The text or component to use for the floating label.
-   */
-  label?: TextInputLabelProp;
-  /**
-   * Placeholder for the input.
-   */
-  placeholder?: string;
-  /**
-   * Whether to style the TextInput with error style.
+   * When `true`, the field uses error styling and replaces the trailing accessory
+   * with an error indicator when no `endAccessory` is provided.
    */
   error?: boolean;
   /**
-   * Callback that is called when the text input's text changes. Changed text is passed as an argument to the callback handler.
+   * The label text to display above the input.
    */
-  onChangeText?: Function;
+  label?: string;
   /**
-   * Selection color of the input.
+   * Supporting text to display below the input (Material Design 3).
    */
-  selectionColor?: string;
+  supportingText?: string;
   /**
-   * Inactive underline color of the input.
+   * When `true`, displays a character counter below the input on the trailing
+   * side, showing `currentLength/maxLength`. Requires `maxLength` to be set.
    */
-  underlineColor?: string;
+  counter?: boolean;
   /**
-   * Active underline color of the input.
+   * This is separate from `editable={false}`, which makes the text read-only while the
+   * input can still be focused and text selected.
    */
-  activeUnderlineColor?: string;
+  disabled?: boolean;
   /**
-   * Inactive outline color of the input.
+   * A short text string displayed at the start of the input (e.g. `"$"`).
    */
-  outlineColor?: string;
+  prefix?: string;
   /**
-   * Active outline color of the input.
+   * A short text string displayed at the end of the input (e.g. `"/100"`).
    */
-  activeOutlineColor?: string;
+  suffix?: string;
+  theme?: ThemeProp;
   /**
-   * @supported Available in v5.x
-   * Color of the text in the input.
+   * An optional component to render on the start side of the input (leading in LTR).
+   * Can be a custom component or `TextInput.Icon`.
    */
-  textColor?: string;
+  startAccessory?: (props: TextInputAccessoryProps) => React.ReactNode;
   /**
-   * Sets min height with densed layout. For `TextInput` in `flat` mode
-   * height is `64dp` or in dense layout - `52dp` with label or `40dp` without label.
-   * For `TextInput` in `outlined` mode
-   * height is `56dp` or in dense layout - `40dp` regardless of label.
-   * When you apply `height` prop in style the `dense` prop affects only `paddingVertical` inside `TextInput`
+   * An optional component to render on the end side of the input (trailing in LTR).
+   * Can be a custom component or `TextInput.Icon`.
    */
-  dense?: boolean;
+  endAccessory?: (props: TextInputAccessoryProps) => React.ReactNode;
   /**
-   * Whether the input can have multiple lines.
+   * Callback to render a custom input component in place of the native `TextInput`.
+   * Receives all props that would be passed to `TextInput`, allowing integration
+   * with third-party inputs such as masked inputs.
    */
-  multiline?: boolean;
-  /**
-   * The number of lines to show in the input (Android only).
-   */
-  numberOfLines?: number;
-  /**
-   * Callback that is called when the text input is focused.
-   */
-  onFocus?: (args: any) => void;
-  /**
-   * Callback that is called when the text input is blurred.
-   */
-  onBlur?: (args: any) => void;
-  /**
-   *
-   * Callback to render a custom input component such as `react-native-text-input-mask`
-   * instead of the default `TextInput` component from `react-native`.
-   *
-   * Example:
-   * ```js
-   * <TextInput
-   *   label="Phone number"
-   *   render={props =>
-   *     <TextInputMask
-   *       {...props}
-   *       mask="+[00] [000] [000] [000]"
-   *     />
-   *   }
-   * />
-   * ```
-   */
-  render?: (props: RenderProps) => React.ReactNode;
-  /**
-   * Value of the text input.
-   */
-  value?: string;
-  /**
-   * Pass `fontSize` prop to modify the font size inside `TextInput`.
-   * Pass `height` prop to set `TextInput` height. When `height` is passed,
-   * `dense` prop will affect only input's `paddingVertical`.
-   * Pass `paddingHorizontal` to modify horizontal padding.
-   * This can be used to get MD Guidelines v1 TextInput look.
-   */
-  style?: StyleProp<TextStyle>;
-  /**
-   * @optional
-   */
-  theme: InternalTheme;
-  /**
-   * testID to be used on tests.
-   */
-  testID?: string;
+  render?: (props: TextInputRenderProps) => React.ReactNode;
 };
 
-interface CompoundedComponent
-  extends React.ForwardRefExoticComponent<
-    Props & React.RefAttributes<TextInputHandles>
-  > {
-  Icon: React.FunctionComponent<TextInputIconProps>;
-  Affix: React.FunctionComponent<Partial<TextInputAffixProps>>;
-}
-
-type TextInputHandles = Pick<
-  NativeTextInput,
-  'focus' | 'clear' | 'blur' | 'isFocused' | 'setNativeProps'
->;
+const defaultRenderer = (props: TextInputRenderProps) => (
+  <NativeTextInput {...props} />
+);
 
 /**
- * A component to allow users to input text.
- *
- * <div class="screenshots">
- *   <figure>
- *     <img src="screenshots/textinput-flat.focused.png" />
- *     <figcaption>Flat (focused)</figcaption>
- *   </figure>
- *   <figure>
- *     <img src="screenshots/textinput-flat.disabled.png" />
- *     <figcaption>Flat (disabled)</figcaption>
- *   </figure>
- *   <figure>
- *     <img src="screenshots/textinput-outlined.focused.png" />
- *     <figcaption>Outlined (focused)</figcaption>
- *   </figure>
- *   <figure>
- *     <img src="screenshots/textinput-outlined.disabled.png" />
- *     <figcaption>Outlined (disabled)</figcaption>
- *   </figure>
- * </div>
+ * A text input lets users enter and edit text. It shows an optional floating label,
+ * supports `filled` and `outlined` variants, optional supporting text (including
+ * error state), and start/end accessories.
  *
  * ## Usage
  * ```js
@@ -185,13 +258,31 @@ type TextInputHandles = Pick<
  * import { TextInput } from 'react-native-paper';
  *
  * const MyComponent = () => {
- *   const [text, setText] = React.useState("");
+ *   const [text, setText] = React.useState('');
+ *
+ *   const searchAccessory = (accessoryProps) => (
+ *     <TextInput.Icon {...accessoryProps} icon="magnify" />
+ *   );
+ *
+ *   const clearAccessory = ({ style, disabled }) => (
+ *     <Pressable
+ *       style={style}
+ *       disabled={disabled}
+ *       onPress={() => setText('')}
+ *       role="button"
+ *       aria-label="Clear text"
+ *     >
+ *       <Icon source="close" size={24} />
+ *     </Pressable>
+ *   );
  *
  *   return (
  *     <TextInput
- *       label="Email"
+ *       label="Search"
  *       value={text}
- *       onChangeText={text => setText(text)}
+ *       onChangeText={setText}
+ *       startAccessory={searchAccessory}
+ *       endAccessory={clearAccessory}
  *     />
  *   );
  * };
@@ -201,291 +292,163 @@ type TextInputHandles = Pick<
  *
  * @extends TextInput props https://reactnative.dev/docs/textinput#props
  */
+function TextInput({
+  ref,
+  error,
+  label,
+  supportingText,
+  variant,
+  theme,
+  prefix,
+  suffix,
+  counter,
+  disabled,
+  startAccessory,
+  endAccessory,
+  render = defaultRenderer,
+  ...rest
+}: TextInputProps) {
+  const {
+    input,
+    isDisabled,
+    isEditable,
+    hasPrefix,
+    hasSuffix,
+    hasCounter,
+    hasError,
+    leadingAccessoryStyles,
+    trailingAccessoryStyles,
+    fieldStyles,
+    disabledBackgroundStyles,
+    outlineStyles,
+    animatedActiveOutlineStyles,
+    animatedLabelWrapperStyles,
+    animatedLabelTextStyles,
+    animatedContainerStyle,
+    containerStyles,
+    inputStyles,
+    prefixStyles,
+    suffixStyles,
+    supportingTextStyles,
+    counterStyles,
+    placeholderTextColor,
+    selectionColor,
+    cursorColor,
+    placeholder,
+    counterText,
+    accessibilityProps,
+    renderLeadingAccessory,
+    renderTrailingAccessory,
+    focusInput,
+    onChangeText,
+    onFocus,
+    onBlur,
+  } = useTextInput({
+    ref,
+    error,
+    label,
+    supportingText,
+    variant,
+    theme,
+    prefix,
+    suffix,
+    counter,
+    disabled,
+    startAccessory,
+    endAccessory,
+    ...rest,
+  });
 
-const TextInput = React.forwardRef<TextInputHandles, Props>(
-  (
-    {
-      mode = 'flat',
-      dense = false,
-      disabled = false,
-      error: errorProp = false,
-      multiline = false,
-      editable = true,
-      render = (props: RenderProps) => <NativeTextInput {...props} />,
-      ...rest
-    }: Props,
-    ref
-  ) => {
-    const isControlled = rest.value !== undefined;
-    const validInputValue = isControlled ? rest.value : rest.defaultValue;
+  return (
+    <Pressable onPress={focusInput} accessible={false} role="none">
+      <View style={fieldStyles}>
+        {/* Disabled tint overlay — filled variant only. A childless
+          absolutely-positioned View whose translucent fill is applied via the
+          `opacity` style, so it never affects label/input rendering and works
+          with PlatformColor on Android. */}
+        {!!disabledBackgroundStyles && (
+          <View style={disabledBackgroundStyles} />
+        )}
 
-    const { current: labeled } = React.useRef<Animated.Value>(
-      new Animated.Value(validInputValue ? 0 : 1)
-    );
-    const { current: error } = React.useRef<Animated.Value>(
-      new Animated.Value(errorProp ? 1 : 0)
-    );
-    const [focused, setFocused] = React.useState<boolean>(false);
-    const [placeholder, setPlaceholder] = React.useState<string | undefined>(
-      ' '
-    );
-    const [uncontrolledValue, setUncontrolledValue] = React.useState<
-      string | undefined
-    >(validInputValue);
-    // Use value from props instead of local state when input is controlled
-    const value = isControlled ? rest.value : uncontrolledValue;
+        {/* Inactive indicator — always-visible 1px bottom border (filled) or
+          full border (outlined); height and color reflect error/disabled state
+          but do not change on focus */}
+        <View style={outlineStyles} />
 
-    const [labelLayout, setLabelLayout] = React.useState<{
-      measured: boolean;
-      width: number;
-      height: number;
-    }>({
-      measured: false,
-      width: 0,
-      height: 0,
-    });
-    const [leftLayout, setLeftLayout] = React.useState<{
-      height: number | null;
-      width: number | null;
-    }>({
-      width: null,
-      height: null,
-    });
-    const [rightLayout, setRightLayout] = React.useState<{
-      height: number | null;
-      width: number | null;
-    }>({
-      width: null,
-      height: null,
-    });
+        {/* Active indicator — filled variant only; 2px bar that expands from
+          the center outward via scaleX (0 → 1) on focus and collapses on blur */}
+        {!!animatedActiveOutlineStyles && (
+          <Animated.View style={animatedActiveOutlineStyles} />
+        )}
 
-    const timer = React.useRef<NodeJS.Timeout | undefined>();
+        {!!label && (
+          <Animated.View aria-hidden style={animatedLabelWrapperStyles}>
+            <Animated.Text style={animatedLabelTextStyles}>
+              {label}
+            </Animated.Text>
+          </Animated.View>
+        )}
 
-    const root = React.useRef<NativeTextInput | undefined | null>();
+        {renderLeadingAccessory
+          ? renderLeadingAccessory({
+              style: leadingAccessoryStyles,
+              error: hasError,
+              disabled: isDisabled,
+              multiline: !!rest.multiline,
+            })
+          : null}
 
-    const { scale } = rest.theme.animation;
+        <Animated.View style={[containerStyles, animatedContainerStyle]}>
+          {hasPrefix && <Text style={prefixStyles}>{prefix}</Text>}
 
-    React.useImperativeHandle(ref, () => ({
-      focus: () => root.current?.focus(),
-      clear: () => root.current?.clear(),
-      setNativeProps: (args: Object) => root.current?.setNativeProps(args),
-      isFocused: () => root.current?.isFocused() || false,
-      blur: () => root.current?.blur(),
-      forceFocus: () => root.current?.focus(),
-    }));
-
-    React.useEffect(() => {
-      // When the input has an error, we wiggle the label and apply error styles
-      if (errorProp) {
-        // show error
-        Animated.timing(error, {
-          toValue: 1,
-          duration: FOCUS_ANIMATION_DURATION * scale,
-          // To prevent this - https://github.com/callstack/react-native-paper/issues/941
-          useNativeDriver: true,
-        }).start();
-      } else {
-        // hide error
-        {
-          Animated.timing(error, {
-            toValue: 0,
-            duration: BLUR_ANIMATION_DURATION * scale,
-            // To prevent this - https://github.com/callstack/react-native-paper/issues/941
-            useNativeDriver: true,
-          }).start();
-        }
-      }
-    }, [errorProp, scale, error]);
-
-    React.useEffect(() => {
-      // Show placeholder text only if the input is focused, or there's no label
-      // We don't show placeholder if there's a label because the label acts as placeholder
-      // When focused, the label moves up, so we can show a placeholder
-      if (focused || !rest.label) {
-        // Set the placeholder in a delay to offset the label animation
-        // If we show it immediately, they'll overlap and look ugly
-        timer.current = setTimeout(
-          () => setPlaceholder(rest.placeholder),
-          50
-        ) as unknown as NodeJS.Timeout;
-      } else {
-        // hidePlaceholder
-
-        // Issue: https://github.com/callstack/react-native-paper/issues/3138
-        // Description:   Changing the placeholder text value dynamically,
-        //                within multiline input on iOS, doesn't work properly –
-        //                the placeholder is not displayed initially.
-        // Root cause:    Placeholder initial value, which has length 0.
-        // More context:  The issue was also reproduced in react-native, using its own TextInput.
-        // Workaround:    Set an empty space character in the default value.
-        setPlaceholder(' ');
-      }
-
-      return () => {
-        if (timer.current) {
-          clearTimeout(timer.current);
-        }
-      };
-    }, [focused, rest.label, rest.placeholder]);
-
-    React.useEffect(() => {
-      // The label should be minimized if the text input is focused, or has text
-      // In minimized mode, the label moves up and becomes small
-      // workaround for animated regression for react native > 0.61
-      // https://github.com/callstack/react-native-paper/pull/1440
-      if (value || focused) {
-        // minimize label
-        Animated.timing(labeled, {
-          toValue: 0,
-          duration: BLUR_ANIMATION_DURATION * scale,
-          // To prevent this - https://github.com/callstack/react-native-paper/issues/941
-          useNativeDriver: true,
-        }).start();
-      } else {
-        // restore label
-        {
-          Animated.timing(labeled, {
-            toValue: 1,
-            duration: FOCUS_ANIMATION_DURATION * scale,
-            // To prevent this - https://github.com/callstack/react-native-paper/issues/941
-            useNativeDriver: true,
-          }).start();
-        }
-      }
-    }, [focused, value, labeled, scale]);
-
-    const onLeftAffixLayoutChange = (event: LayoutChangeEvent) => {
-      setLeftLayout({
-        height: event.nativeEvent.layout.height,
-        width: event.nativeEvent.layout.width,
-      });
-    };
-
-    const onRightAffixLayoutChange = (event: LayoutChangeEvent) => {
-      setRightLayout({
-        width: event.nativeEvent.layout.width,
-        height: event.nativeEvent.layout.height,
-      });
-    };
-
-    const handleFocus = (args: any) => {
-      if (disabled || !editable) {
-        return;
-      }
-
-      setFocused(true);
-
-      rest.onFocus?.(args);
-    };
-
-    const handleBlur = (args: Object) => {
-      if (!editable) {
-        return;
-      }
-
-      setFocused(false);
-      rest.onBlur?.(args);
-    };
-
-    const handleChangeText = (value: string) => {
-      if (!editable || disabled) {
-        return;
-      }
-
-      if (!isControlled) {
-        // Keep track of value in local state when input is not controlled
-        setUncontrolledValue(value);
-      }
-      rest.onChangeText?.(value);
-    };
-
-    const handleLayoutAnimatedText = (e: LayoutChangeEvent) => {
-      setLabelLayout({
-        width: e.nativeEvent.layout.width,
-        height: e.nativeEvent.layout.height,
-        measured: true,
-      });
-    };
-    const forceFocus = () => root.current?.focus();
-
-    const { maxFontSizeMultiplier = 1.5 } = rest;
-
-    if (mode === 'outlined') {
-      return (
-        <TextInputOutlined
-          dense={dense}
-          disabled={disabled}
-          error={errorProp}
-          multiline={multiline}
-          editable={editable}
-          render={render}
-          {...rest}
-          value={value}
-          parentState={{
-            labeled,
-            error,
-            focused,
+          {render({
+            ref: input,
+            selectionColor,
+            cursorColor,
+            placeholderTextColor,
+            ...accessibilityProps.input,
+            ...rest,
+            editable: isEditable,
             placeholder,
-            value,
-            labelLayout,
-            leftLayout,
-            rightLayout,
-          }}
-          innerRef={(ref) => {
-            root.current = ref;
-          }}
-          onFocus={handleFocus}
-          forceFocus={forceFocus}
-          onBlur={handleBlur}
-          onChangeText={handleChangeText}
-          onLayoutAnimatedText={handleLayoutAnimatedText}
-          onLeftAffixLayoutChange={onLeftAffixLayoutChange}
-          onRightAffixLayoutChange={onRightAffixLayoutChange}
-          maxFontSizeMultiplier={maxFontSizeMultiplier}
-        />
-      );
-    }
+            style: inputStyles,
+            onChangeText,
+            onFocus,
+            onBlur,
+          })}
 
-    return (
-      <TextInputFlat
-        dense={dense}
-        disabled={disabled}
-        error={errorProp}
-        multiline={multiline}
-        editable={editable}
-        render={render}
-        {...rest}
-        value={value}
-        parentState={{
-          labeled,
-          error,
-          focused,
-          placeholder,
-          value,
-          labelLayout,
-          leftLayout,
-          rightLayout,
-        }}
-        innerRef={(ref) => {
-          root.current = ref;
-        }}
-        onFocus={handleFocus}
-        forceFocus={forceFocus}
-        onBlur={handleBlur}
-        onChangeText={handleChangeText}
-        onLayoutAnimatedText={handleLayoutAnimatedText}
-        onLeftAffixLayoutChange={onLeftAffixLayoutChange}
-        onRightAffixLayoutChange={onRightAffixLayoutChange}
-        maxFontSizeMultiplier={maxFontSizeMultiplier}
-      />
-    );
-  }
-) as CompoundedComponent;
-// @component ./Adornment/TextInputIcon.tsx
-TextInput.Icon = TextInputIcon;
+          {hasSuffix && <Text style={suffixStyles}>{suffix}</Text>}
+        </Animated.View>
 
-// @component ./Adornment/TextInputAffix.tsx
-// @ts-ignore Types of property 'theme' are incompatible.
-TextInput.Affix = TextInputAffix;
+        {renderTrailingAccessory ? (
+          renderTrailingAccessory({
+            style: trailingAccessoryStyles,
+            error: hasError,
+            disabled: isDisabled,
+            multiline: !!rest.multiline,
+          })
+        ) : hasError ? (
+          <TextInputErrorIcon style={trailingAccessoryStyles} theme={theme} />
+        ) : null}
+      </View>
 
-export default withInternalTheme(TextInput);
+      <View style={styles.addendum}>
+        {!!supportingText && (
+          <Text
+            {...accessibilityProps.supportingText}
+            style={supportingTextStyles}
+          >
+            {supportingText}
+          </Text>
+        )}
+
+        {hasCounter && (
+          <Text {...accessibilityProps.counter} style={counterStyles}>
+            {counterText}
+          </Text>
+        )}
+      </View>
+    </Pressable>
+  );
+}
+
+export default TextInput;
